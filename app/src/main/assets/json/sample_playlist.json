@@ -1,0 +1,137 @@
+{
+  "playlistId": "hotel-lobby-default",
+  "version": 1,
+  "updatedAt": "2026-09-01T12:00:00Z",
+  "items": [
+    {
+      "id": "emergency-fire",
+      "type": "TEXT",
+      "text": "EMERGENCY: Please leave the building calmly using the nearest exit.",
+      "url": null,
+      "durationSec": 0,
+      "orderIndex": 0,
+      "enabled": false,
+      "priority": 100,
+      "isEmergency": true,
+      "schedule": null,
+      "metadata": null,
+      "layout": null
+    },
+    {
+      "id": "video-welcome",
+      "type": "VIDEO",
+      "text": null,
+      "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "durationSec": 0,
+      "orderIndex": 1,
+      "enabled": true,
+      "priority": 0,
+      "isEmergency": false,
+      "schedule": {
+        "startAt": "2026-01-01T00:00:00Z",
+        "endAt": "2026-12-31T23:59:59Z",
+        "daysOfWeek": [1, 2, 3, 4, 5, 6, 7],
+        "startTime": "00:00",
+        "endTime": "23:59"
+      },
+      "metadata": null,
+      "layout": null
+    },
+    {
+      "id": "image-pool",
+      "type": "IMAGE",
+      "text": null,
+      "url": "https://picsum.photos/1920/1080",
+      "durationSec": 10,
+      "orderIndex": 2,
+      "enabled": true,
+      "priority": 0,
+      "isEmergency": false,
+      "schedule": null,
+      "metadata": {
+        "scaleType": "fitCenter"
+      },
+      "layout": null
+    },
+    {
+      "id": "text-welcome",
+      "type": "TEXT",
+      "text": "Welcome to the Grand Hotel\nWe hope you enjoy your stay",
+      "url": null,
+      "durationSec": 8,
+      "orderIndex": 3,
+      "enabled": true,
+      "priority": 0,
+      "isEmergency": false,
+      "schedule": {
+        "startAt": null,
+        "endAt": null,
+        "daysOfWeek": [1, 2, 3, 4, 5, 6, 7],
+        "startTime": "06:00",
+        "endTime": "23:00"
+      },
+      "metadata": null,
+      "layout": null
+    },
+    {
+      "id": "banner-breakfast",
+      "type": "BANNER",
+      "text": "Breakfast is served 07:00 - 10:00 in the main restaurant",
+      "url": null,
+      "durationSec": 8,
+      "orderIndex": 4,
+      "enabled": true,
+      "priority": 0,
+      "isEmergency": false,
+      "schedule": null,
+      "metadata": {
+        "bannerPosition": "bottom"
+      },
+      "layout": null
+    },
+    {
+      "id": "web-info",
+      "type": "WEB_PAGE",
+      "text": null,
+      "url": "https://example.com",
+      "durationSec": 20,
+      "orderIndex": 5,
+      "enabled": true,
+      "priority": 0,
+      "isEmergency": false,
+      "schedule": null,
+      "metadata": {
+        "javascriptEnabled": true
+      },
+      "layout": null
+    },
+    {
+      "id": "layout-split",
+      "type": "LAYOUT",
+      "text": null,
+      "url": null,
+      "durationSec": 15,
+      "orderIndex": 6,
+      "enabled": true,
+      "priority": 0,
+      "isEmergency": false,
+      "schedule": null,
+      "metadata": null,
+      "layout": {
+        "template": "VIDEO_LEFT_TEXT_RIGHT",
+        "regions": [
+          {
+            "type": "VIDEO",
+            "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
+            "text": null
+          },
+          {
+            "type": "TEXT",
+            "url": null,
+            "text": "Spa & Wellness\nOpen daily 09:00 - 21:00"
+          }
+        ]
+      }
+    }
+  ]
+}

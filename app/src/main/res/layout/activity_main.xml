@@ -53,10 +53,10 @@
         android:layout_gravity="center"
         android:background="@android:color/black"
         android:gravity="center"
+        android:lineSpacingMultiplier="1.2"
         android:padding="64dp"
         android:textColor="@android:color/white"
         android:textSize="48sp"
-        android:lineSpacingMultiplier="1.2"
         android:visibility="gone"
         tools:text="Welcome to the Grand Hotel"
         tools:visibility="visible" />
