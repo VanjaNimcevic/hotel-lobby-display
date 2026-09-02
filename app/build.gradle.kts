@@ -3,13 +3,13 @@ plugins {
 }
 
 android {
-    namespace = "com.vanja.projekat"
+    namespace = "com.vanja.hotellobbydisplay"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.vanja.projekat"
+        applicationId = "com.vanja.hotellobbydisplay"
         minSdk = 28
         targetSdk = 37
         versionCode = 1

@@ -1,4 +1,4 @@
-package com.vanja.projekat;
+package com.vanja.hotellobbydisplay;
 
 import android.os.Bundle;
 import android.view.View;
