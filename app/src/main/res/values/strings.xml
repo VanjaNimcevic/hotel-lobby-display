@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Hotel Lobby Display</string>
+    <string name="image_content_description">Signage image content</string>
 </resources>
