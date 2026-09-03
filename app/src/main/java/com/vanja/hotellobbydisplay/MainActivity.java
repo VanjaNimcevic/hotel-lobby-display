@@ -8,54 +8,48 @@ import android.view.WindowInsetsController;
 
 import androidx.fragment.app.FragmentActivity;
 
-import com.vanja.hotellobbydisplay.data.PlaylistJsonParser;
-import com.vanja.hotellobbydisplay.model.PlaylistItemModel;
-import com.vanja.hotellobbydisplay.model.PlaylistModel;
-import com.vanja.hotellobbydisplay.util.AssetFileReader;
+import com.vanja.hotellobbydisplay.data.PlaylistRepository;
+import com.vanja.hotellobbydisplay.data.local.PlaylistItemEntity;
+
+import java.util.List;
 
 public class MainActivity extends FragmentActivity {
 
     private static final String TAG = "MainActivity";
 
-    /** Path of the bundled playlist inside app/src/main/assets. */
-    private static final String PLAYLIST_ASSET = "json/sample_playlist.json";
+    private PlaylistRepository playlistRepository;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         hideSystemUI();
-        loadPlaylistJson();
+
+        playlistRepository = PlaylistRepository.getInstance(this);
+        loadPlaylist();
     }
 
     /**
-     * APV-7 + APV-10: on startup, read the sample playlist JSON from assets and
-     * parse it into a {@link PlaylistModel}, logging the result. Later tasks add
-     * remote loading (APV-14) and storage in Room (APV-13).
+     * APV-13: ask the repository for the playlist. The repository handles assets,
+     * parsing and Room storage on a background thread and calls back on the main
+     * thread. The Activity never touches the parser, assets or DAOs directly.
      */
-    private void loadPlaylistJson() {
-        String json = AssetFileReader.readAssetFile(this, PLAYLIST_ASSET);
+    private void loadPlaylist() {
+        playlistRepository.loadInitialPlaylist(new PlaylistRepository.Callback() {
+            @Override
+            public void onPlaylistReady(List<PlaylistItemEntity> enabledItems) {
+                Log.i(TAG, "Playlist ready: " + enabledItems.size() + " enabled items");
+                for (PlaylistItemEntity item : enabledItems) {
+                    Log.i(TAG, "  item -> " + item.getId() + " (" + item.getType()
+                            + ", " + item.getDurationSec() + "s)");
+                }
+            }
 
-        if (json == null) {
-            // AssetFileReader already logged the underlying error. Make it clear
-            // here too, and keep the app alive instead of crashing.
-            Log.e(TAG, "Playlist JSON could not be loaded from assets ('"
-                    + PLAYLIST_ASSET + "'). Continuing without a playlist.");
-            return;
-        }
-        Log.i(TAG, "Playlist JSON loaded from assets (" + json.length() + " chars)");
-
-        PlaylistModel playlist = new PlaylistJsonParser().parse(json);
-        if (playlist == null) {
-            // Parser already logged why. Keep the app alive.
-            Log.e(TAG, "Playlist JSON could not be parsed. Continuing without a playlist.");
-            return;
-        }
-
-        Log.i(TAG, "Playlist ready: " + playlist);
-        for (PlaylistItemModel item : playlist.getItems()) {
-            Log.i(TAG, "  item -> " + item);
-        }
+            @Override
+            public void onError(String message) {
+                Log.e(TAG, "Could not load playlist: " + message);
+            }
+        });
     }
 
     @Override
