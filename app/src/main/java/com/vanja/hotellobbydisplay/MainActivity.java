@@ -8,6 +8,9 @@ import android.view.WindowInsetsController;
 
 import androidx.fragment.app.FragmentActivity;
 
+import com.vanja.hotellobbydisplay.data.PlaylistJsonParser;
+import com.vanja.hotellobbydisplay.model.PlaylistItemModel;
+import com.vanja.hotellobbydisplay.model.PlaylistModel;
 import com.vanja.hotellobbydisplay.util.AssetFileReader;
 
 public class MainActivity extends FragmentActivity {
@@ -26,9 +29,9 @@ public class MainActivity extends FragmentActivity {
     }
 
     /**
-     * APV-7: on startup, read the sample playlist JSON from assets and print it
-     * to logcat so we can confirm the file is bundled and readable. Later tasks
-     * replace this with real parsing (APV-10) and storage (APV-13).
+     * APV-7 + APV-10: on startup, read the sample playlist JSON from assets and
+     * parse it into a {@link PlaylistModel}, logging the result. Later tasks add
+     * remote loading (APV-14) and storage in Room (APV-13).
      */
     private void loadPlaylistJson() {
         String json = AssetFileReader.readAssetFile(this, PLAYLIST_ASSET);
@@ -40,11 +43,19 @@ public class MainActivity extends FragmentActivity {
                     + PLAYLIST_ASSET + "'). Continuing without a playlist.");
             return;
         }
+        Log.i(TAG, "Playlist JSON loaded from assets (" + json.length() + " chars)");
 
-        Log.i(TAG, "Playlist JSON loaded from assets (" + json.length() + " chars):");
-        // Note: logcat may cut off very long messages. The sample file is small
-        // enough to print in one go.
-        Log.i(TAG, json);
+        PlaylistModel playlist = new PlaylistJsonParser().parse(json);
+        if (playlist == null) {
+            // Parser already logged why. Keep the app alive.
+            Log.e(TAG, "Playlist JSON could not be parsed. Continuing without a playlist.");
+            return;
+        }
+
+        Log.i(TAG, "Playlist ready: " + playlist);
+        for (PlaylistItemModel item : playlist.getItems()) {
+            Log.i(TAG, "  item -> " + item);
+        }
     }
 
     @Override
