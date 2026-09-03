@@ -5,23 +5,39 @@ import java.util.List;
 /**
  * The whole playlist, parsed from the playlist JSON (see docs/playlist-format.md).
  *
- * <p>These are plain data-holder classes (POJOs). The field names match the JSON
- * keys exactly, so Gson (APV-10) can fill them in automatically with no extra
- * configuration.</p>
+ * <p>Plain data-holder class. Fields are private with public getters
+ * (encapsulation). The field names match the JSON keys exactly, so Gson (APV-10)
+ * fills them in by reflection with no extra configuration and no setters.</p>
  */
 public class PlaylistModel {
 
     /** Unique id of this playlist. Required. */
-    public String playlistId;
+    private String playlistId;
 
     /** Increases every time the playlist changes. Required. */
-    public int version;
+    private int version;
 
     /** ISO-8601 timestamp of the last change. Optional. */
-    public String updatedAt;
+    private String updatedAt;
 
     /** The content items, in play order. Required. */
-    public List<PlaylistItemModel> items;
+    private List<PlaylistItemModel> items;
+
+    public String getPlaylistId() {
+        return playlistId;
+    }
+
+    public int getVersion() {
+        return version;
+    }
+
+    public String getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public List<PlaylistItemModel> getItems() {
+        return items;
+    }
 
     @Override
     public String toString() {
