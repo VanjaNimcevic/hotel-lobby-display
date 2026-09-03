@@ -15,6 +15,7 @@ import com.vanja.hotellobbydisplay.data.local.PlaylistItemEntity;
 import com.vanja.hotellobbydisplay.model.PlaylistItemModel;
 import com.vanja.hotellobbydisplay.model.PlaylistModel;
 import com.vanja.hotellobbydisplay.util.AssetFileReader;
+import com.vanja.hotellobbydisplay.util.HttpTextFetcher;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,6 +36,16 @@ import java.util.concurrent.Executors;
 public class PlaylistRepository {
 
     private static final String TAG = "PlaylistRepository";
+
+    /**
+     * Where the playlist is downloaded from. Replace with the real CDN URL.
+     * The placeholder below does not serve a playlist, so out of the box the
+     * app falls back to the bundled asset - which is exactly the behaviour
+     * APV-14 asks us to support.
+     */
+    private static final String PLAYLIST_URL = "https://example.com/hotel-lobby/playlist.json";
+
+    /** Bundled copy used when the remote URL cannot be reached or is invalid. */
     private static final String PLAYLIST_ASSET = "json/sample_playlist.json";
 
     /** Delivered on the main thread when a load finishes. */
@@ -73,7 +84,7 @@ public class PlaylistRepository {
     public void loadInitialPlaylist(Callback callback) {
         backgroundExecutor.execute(() -> {
             try {
-                List<PlaylistItemEntity> items = loadFromAssetsAndStore();
+                List<PlaylistItemEntity> items = loadAndStore();
                 mainThread.post(() -> callback.onPlaylistReady(items));
             } catch (Exception e) {
                 Log.e(TAG, "Failed to load playlist", e);
@@ -101,16 +112,36 @@ public class PlaylistRepository {
     // Everything below runs on the background thread.
     // ------------------------------------------------------------------
 
-    private List<PlaylistItemEntity> loadFromAssetsAndStore() {
-        String json = AssetFileReader.readAssetFile(appContext, PLAYLIST_ASSET);
-        if (json == null) {
-            throw new IllegalStateException("playlist asset not found: " + PLAYLIST_ASSET);
+    private List<PlaylistItemEntity> loadAndStore() {
+        PlaylistModel model = null;
+        String source = null;
+
+        // 1. Try the remote URL first.
+        String remoteJson = HttpTextFetcher.fetch(PLAYLIST_URL);
+        if (remoteJson != null) {
+            model = parser.parse(remoteJson);
+            if (model != null) {
+                source = "REMOTE";
+            }
         }
 
-        PlaylistModel model = parser.parse(json);
+        // 2. Fall back to the bundled asset if remote failed or was invalid.
         if (model == null) {
-            throw new IllegalStateException("playlist JSON could not be parsed");
+            String assetJson = AssetFileReader.readAssetFile(appContext, PLAYLIST_ASSET);
+            if (assetJson != null) {
+                model = parser.parse(assetJson);
+                if (model != null) {
+                    source = "ASSETS";
+                }
+            }
         }
+
+        if (model == null) {
+            throw new IllegalStateException("playlist could not be loaded from remote or assets");
+        }
+
+        Log.i(TAG, "Playlist loaded from " + source + " (playlistId=" + model.getPlaylistId()
+                + ", version=" + model.getVersion() + ")");
 
         PlaylistEntity playlistEntity = toEntity(model);
         List<PlaylistItemEntity> itemEntities = toEntities(model);
