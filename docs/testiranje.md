@@ -153,7 +153,8 @@ Posle testa **vrati `PLAYLIST_URL` na staru vrednost.**
 
 ## 5b. Test APV-15 — video reprodukcija
 
-Playlista ima jednu `VIDEO` stavku (`video-welcome`, W3C "Sintel" trailer, ~50 s).
+Playlista ima jednu `VIDEO` stavku (`video-welcome`, kratak test klip, 10 s,
+~1 MB — namerno kratak da testiranje ide brzo).
 
 **Normalno:**
 1. Pokreni na TV emulatoru uz uključen internet.
@@ -163,16 +164,16 @@ Playlista ima jednu `VIDEO` stavku (`video-welcome`, W3C "Sintel" trailer, ~50 s
    ```
    I  MainActivity   VIDEO items: 1
    I  MainActivity   VIDEO 1/1 -> video-welcome
-   I  VideoRenderer  Playing video: https://media.w3.org/2010/05/sintel/trailer.mp4
-   ... (~50 s kasnije) ...
-   I  VideoRenderer  Video ended: https://media.w3.org/2010/05/sintel/trailer.mp4
+   I  VideoRenderer  Playing video: https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4
+   ... (10 s kasnije) ...
+   I  VideoRenderer  Video ended: https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4
    I  MainActivity   VIDEO 1/1 -> video-welcome        (kreće ponovo - petlja)
    ```
 
 > Napomena: originalni URL iz APV-5
 > (`commondatastorage.googleapis.com/gtv-videos-bucket/...`) je u međuvremenu
-> počeo da vraća HTTP 403, pa je zamenjen W3C-jevim test videom. To je bio i
-> nesvestan test greške — vidiš dole.
+> počeo da vraća HTTP 403, pa je prvo zamenjen W3C-jevim "Sintel" trailer-om
+> (~4 MB, ~50 s), a zatim ovim kraćim 10 s / 1 MB klipom da testiranje ide brže.
 
 **Test greške (video se ne učita):**
 1. U `app/src/main/assets/json/sample_playlist.json` privremeno promeni `url`
@@ -195,6 +196,83 @@ Playlista ima jednu `VIDEO` stavku (`video-welcome`, W3C "Sintel" trailer, ~50 s
 2. Vrati se u aplikaciju (Recents / ponovo je otvori).
 3. U Logcat-u nema greške ("player released"/re-create), video se ponovo
    pokrene od početka.
+
+---
+
+## 5c. Test APV-16 — slika sa trajanjem
+
+Playlista sad ima **dve** stavke koje se puštaju u krug: `video-welcome`
+(VIDEO) i `image-pool` (IMAGE, `durationSec: 10`, sa `picsum.photos`).
+
+1. Pokreni aplikaciju (deinstaliraj prvo ako baza ima staru playlistu).
+2. Logcat `tag:ImageRenderer | tag:MainActivity`:
+   ```
+   I  MainActivity   ITEM 2/2 -> image-pool (IMAGE)
+   I  ImageRenderer  Showing image for 10s: https://picsum.photos/1920/1080
+   ... (10 s) ...
+   I  MainActivity   ITEM 1/2 -> video-welcome (VIDEO)
+   ```
+3. Na ekranu: posle videa treba da se pojavi **slika preko celog ekrana**
+   tačno 10 sekundi, pa se vrati na video.
+
+**Test greške:** privremeno promeni `url` stavke `image-pool` u
+`https://picsum.photos/nema.jpg`, deinstaliraj pa Run:
+```
+E  ImageRenderer  Image failed to load: https://picsum.photos/nema.jpg
+E  MainActivity   Skipping IMAGE image-pool after error: ...
+```
+Aplikacija ne puca, ide dalje posle 3 s. Vrati URL nazad
+(`git checkout -- app/src/main/assets/json/sample_playlist.json`).
+
+---
+
+## 5d. Test APV-17 — tekst i baner
+
+Playlista sad ima 4 stavke u krugu: VIDEO, IMAGE, TEXT (`text-welcome`, 8s,
+u sredini), BANNER (`banner-breakfast`, 8s, `position: bottom`).
+
+1. Deinstaliraj app pa Run (baza da se osveži).
+2. Logcat `tag:TextRenderer | tag:MainActivity`:
+   ```
+   I  MainActivity   ITEM 3/4 -> text-welcome (TEXT)
+   I  TextRenderer   Showing text for 8s (position=null)
+   ... (8 s) ...
+   I  MainActivity   ITEM 4/4 -> banner-breakfast (BANNER)
+   I  TextRenderer   Showing text for 8s (position=bottom)
+   ```
+3. Na ekranu: `text-welcome` tekst se pojavi **u sredini**, `banner-breakfast`
+   **pri dnu** ekrana, oba na crnoj pozadini, beo veliki tekst.
+
+**Test nepoznate pozicije:** u `sample_playlist.json` privremeno promeni
+`"bannerPosition": "bottom"` (kod `banner-breakfast`) u
+`"bannerPosition": "nesto-cudno"`. Deinstaliraj pa Run — tekst i dalje ide u
+**sredinu** (bezbedan fallback), bez greške u Logcat-u. Vrati JSON nazad.
+
+---
+
+## 5e. Test APV-18 — web stranica
+
+Playlista sad ima 5 stavki u krugu, uklj. `web-info`
+(`https://www.wikipedia.org`, `durationSec: 20`, `javascriptEnabled: true`).
+
+1. Deinstaliraj app pa Run (baza da se osveži).
+2. Logcat `tag:WebRenderer | tag:MainActivity`:
+   ```
+   I  MainActivity   ITEM 5/5 -> web-info (WEB_PAGE)
+   I  WebRenderer    Showing web page for 20s: https://www.wikipedia.org (javascript=true)
+   ```
+3. Na ekranu: Wikipedia naslovna preko celog ekrana 20 s, pa se vrati na
+   video. (Prvo je probano `example.com` — radilo je ispravno, ali stranica je
+   toliko minimalna, belo/skoro prazno, da je na TV ekranu delovalo kao da se
+   ništa nije desilo. Wikipedia je vizuelno jasnija za demonstraciju.)
+
+**Test greške:** u `sample_playlist.json` privremeno promeni `url` stavke
+`web-info` u `https://ne-postoji-nikako.invalid/`, deinstaliraj pa Run:
+```
+E  WebRenderer    WebView error for https://ne-postoji-nikako.invalid/: net::ERR_NAME_NOT_RESOLVED
+E  MainActivity   Skipping WEB_PAGE web-info after error: ...
+```
+Aplikacija ne puca, ide dalje posle 3 s. Vrati URL nazad.
 
 ---
 

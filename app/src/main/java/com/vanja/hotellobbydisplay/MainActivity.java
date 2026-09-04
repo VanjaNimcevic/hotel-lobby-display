@@ -5,6 +5,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 
@@ -19,6 +20,7 @@ import com.vanja.hotellobbydisplay.data.local.PlaylistItemEntity;
 import com.vanja.hotellobbydisplay.player.ImageRenderer;
 import com.vanja.hotellobbydisplay.player.TextRenderer;
 import com.vanja.hotellobbydisplay.player.VideoRenderer;
+import com.vanja.hotellobbydisplay.player.WebRenderer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,16 +32,21 @@ public class MainActivity extends FragmentActivity {
     private static final String TYPE_IMAGE = "IMAGE";
     private static final String TYPE_TEXT = "TEXT";
     private static final String TYPE_BANNER = "BANNER";
+    private static final String TYPE_WEB_PAGE = "WEB_PAGE";
 
     private PlaylistRepository playlistRepository;
     private VideoRenderer videoRenderer;
     private ImageRenderer imageRenderer;
     private TextRenderer textRenderer;
+    private WebRenderer webRenderer;
 
-    // Temporary driver (APV-15 + APV-16 + APV-17): plays VIDEO, IMAGE, TEXT and
-    // BANNER items in a loop; other types are skipped for now. Replaced by
-    // TimelineScheduler (APV-19) + PlaybackController (APV-20).
+    // Temporary driver (APV-15 + APV-16 + APV-17 + APV-18): plays VIDEO, IMAGE,
+    // TEXT, BANNER and WEB_PAGE items in a loop; other types are skipped for
+    // now. Replaced by TimelineScheduler (APV-19) + PlaybackController (APV-20).
     private static final long RETRY_DELAY_MS = 3_000L;
+
+    /** Extra: simple fade-in when a new item's view appears, instead of a hard cut. */
+    private static final long TRANSITION_MS = 400L;
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private final List<PlaylistItemEntity> playbackItems = new ArrayList<>();
     private int currentItemIndex = 0;
@@ -58,6 +65,9 @@ public class MainActivity extends FragmentActivity {
 
         TextView textView = findViewById(R.id.text_view);
         textRenderer = new TextRenderer(textView);
+
+        ViewGroup webContainer = findViewById(R.id.web_container);
+        webRenderer = new WebRenderer(this, webContainer);
 
         playlistRepository = PlaylistRepository.getInstance(this);
         loadPlaylist();
@@ -80,7 +90,7 @@ public class MainActivity extends FragmentActivity {
                         playbackItems.add(item);
                     }
                 }
-                Log.i(TAG, "Playable items (VIDEO/IMAGE/TEXT/BANNER for now): "
+                Log.i(TAG, "Playable items (VIDEO/IMAGE/TEXT/BANNER/WEB_PAGE for now): "
                         + playbackItems.size());
                 currentItemIndex = 0;
                 playCurrentItem();
@@ -93,10 +103,13 @@ public class MainActivity extends FragmentActivity {
         });
     }
 
-    /** VIDEO/IMAGE need a url; TEXT/BANNER need text. Anything else is not renderable yet. */
+    /**
+     * VIDEO/IMAGE/WEB_PAGE need a url; TEXT/BANNER need text. Anything else is
+     * not renderable yet.
+     */
     private boolean hasPlayableContent(PlaylistItemEntity item) {
         String type = item.getType();
-        if (TYPE_VIDEO.equals(type) || TYPE_IMAGE.equals(type)) {
+        if (TYPE_VIDEO.equals(type) || TYPE_IMAGE.equals(type) || TYPE_WEB_PAGE.equals(type)) {
             return item.getUrl() != null;
         }
         if (TYPE_TEXT.equals(type) || TYPE_BANNER.equals(type)) {
@@ -119,13 +132,16 @@ public class MainActivity extends FragmentActivity {
         videoRenderer.release();
         imageRenderer.cancelPending();
         textRenderer.cancelPending();
+        webRenderer.release();
 
         View videoView = findViewById(R.id.video_view);
         View imageView = findViewById(R.id.image_view);
         View textView = findViewById(R.id.text_view);
+        View webContainer = findViewById(R.id.web_container);
         videoView.setVisibility(View.GONE);
         imageView.setVisibility(View.GONE);
         textView.setVisibility(View.GONE);
+        webContainer.setVisibility(View.GONE);
 
         PlaylistItemEntity item = playbackItems.get(currentItemIndex);
         Log.i(TAG, "ITEM " + (currentItemIndex + 1) + "/" + playbackItems.size()
@@ -133,7 +149,7 @@ public class MainActivity extends FragmentActivity {
 
         switch (item.getType()) {
             case TYPE_VIDEO:
-                videoView.setVisibility(View.VISIBLE);
+                fadeIn(videoView);
                 videoRenderer.play(item.getUrl(), new VideoRenderer.Listener() {
                     @Override
                     public void onFinished() {
@@ -149,7 +165,7 @@ public class MainActivity extends FragmentActivity {
                 break;
 
             case TYPE_IMAGE:
-                imageView.setVisibility(View.VISIBLE);
+                fadeIn(imageView);
                 imageRenderer.play(item.getUrl(), item.getDurationSec(), item.getMetadataScaleType(),
                         new ImageRenderer.Listener() {
                             @Override
@@ -168,16 +184,47 @@ public class MainActivity extends FragmentActivity {
 
             case TYPE_TEXT:
             case TYPE_BANNER:
-                textView.setVisibility(View.VISIBLE);
+                fadeIn(textView);
                 textRenderer.play(item.getText(), item.getDurationSec(),
                         item.getMetadataBannerPosition(), () -> advanceToNextItem(0L));
                 break;
 
+            case TYPE_WEB_PAGE:
+                fadeIn(webContainer);
+                webRenderer.play(item.getUrl(), item.getDurationSec(),
+                        item.isMetadataJavascriptEnabled(), new WebRenderer.Listener() {
+                            @Override
+                            public void onFinished() {
+                                advanceToNextItem(0L);
+                            }
+
+                            @Override
+                            public void onError(String message) {
+                                Log.e(TAG, "Skipping WEB_PAGE " + item.getId()
+                                        + " after error: " + message);
+                                advanceToNextItem(RETRY_DELAY_MS);
+                            }
+                        });
+                break;
+
             default:
-                // WEB_PAGE (APV-18) / LAYOUT (APV-30 bonus) - not renderable yet.
+                // LAYOUT (APV-30 bonus) - not renderable yet.
                 Log.i(TAG, "Skipping unsupported type for now: " + item.getType());
                 advanceToNextItem(0L);
         }
+    }
+
+    /**
+     * Extra (not required by any task): a very simple transition between
+     * playlist items - fade the new view in instead of a hard cut. The view
+     * that is hiding is simply set to GONE (no fade-out), which keeps this
+     * cheap and avoids two renderers being visible mid-transition.
+     */
+    private void fadeIn(View view) {
+        view.animate().cancel();
+        view.setAlpha(0f);
+        view.setVisibility(View.VISIBLE);
+        view.animate().alpha(1f).setDuration(TRANSITION_MS).start();
     }
 
     private void advanceToNextItem(long delayMs) {
@@ -200,7 +247,7 @@ public class MainActivity extends FragmentActivity {
     protected void onStop() {
         super.onStop();
         // Stop every renderer and drop any pending "next item" callback while
-        // the app is not visible (APV-15/16/17 lifecycle rule).
+        // the app is not visible (APV-15/16/17/18 lifecycle rule).
         uiHandler.removeCallbacksAndMessages(null);
         if (videoRenderer != null) {
             videoRenderer.release();
@@ -210,6 +257,9 @@ public class MainActivity extends FragmentActivity {
         }
         if (textRenderer != null) {
             textRenderer.cancelPending();
+        }
+        if (webRenderer != null) {
+            webRenderer.release();
         }
     }
 
