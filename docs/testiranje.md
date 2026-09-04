@@ -276,6 +276,64 @@ Aplikacija ne puca, ide dalje posle 3 s. Vrati URL nazad.
 
 ---
 
+## 5f. Test APV-19 + APV-20 — pravi raspored i kontroler
+
+Od ovog taska playlistu vodi `PlaybackController` preko pravog
+`TimelineScheduler`-a, ne fiksna lista. Logcat tag se promenio:
+`tag:PlaybackController` (umesto starih `tag:MainActivity` poruka za
+start/kraj stavke).
+
+**Normalna rotacija (ništa ne diraš):**
+1. Deinstaliraj app pa Run.
+2. Logcat `tag:PlaybackController`:
+   ```
+   I  PlaybackController  Scheduler ready with 5 item(s)
+   I  PlaybackController  START item=video-welcome type=VIDEO
+   I  PlaybackController  FINISH item=video-welcome
+   I  PlaybackController  START item=image-pool type=IMAGE
+   I  PlaybackController  FINISH item=image-pool
+   I  PlaybackController  START item=text-welcome type=TEXT
+   ...
+   I  PlaybackController  START item=layout-split type=LAYOUT
+   I  PlaybackController  Skipping unsupported type: LAYOUT
+   I  PlaybackController  START item=video-welcome type=VIDEO   (krug se ponavlja)
+   ```
+   `layout-split` se **pojavi u logu** (scheduler ga izabere) ali odmah
+   **preskoči** (kontroler nema render za LAYOUT) — to je dokaz da "bezbedno
+   preskoči nepodržan tip" stvarno radi, ne samo u teoriji.
+
+**Test vremenskog prozora (TEXT van `startTime`/`endTime`):**
+1. `text-welcome` ima `startTime: "06:00"`, `endTime: "23:00"`.
+2. Ako je sistemsko vreme emulatora van tog prozora, ta stavka se **neće
+   pojaviti** u rotaciji (`getNextItem()` je preskoči).
+3. Da testiraš bez čekanja pravog vremena: na emulatoru promeni sistemski sat
+   (Settings → System → Date & time → isključi automatsko, postavi npr.
+   02:00) i restartuj app.
+
+**Test emergency stavke:**
+1. U `sample_playlist.json` promeni `emergency-fire.enabled` sa `false` na
+   `true`.
+2. Deinstaliraj app pa Run.
+3. Logcat: `emergency-fire` se pojavljuje **pre** normalnih stavki, i to na
+   svakom sledećem ciklusu (dok je `enabled: true`) jer emergency/priority
+   provera u scheduleru ide pre normalne rotacije:
+   ```
+   I  PlaybackController  START item=emergency-fire type=TEXT
+   I  PlaybackController  FINISH item=emergency-fire
+   I  PlaybackController  START item=emergency-fire type=TEXT   (opet ona)
+   ```
+4. Vrati `enabled` na `false` i `sample_playlist.json` na original
+   (`git checkout -- app/src/main/assets/json/sample_playlist.json`).
+
+**Test greške (isto kao ranije, sad kroz kontroler):**
+- privremeno pokvari neki URL → `tag:PlaybackController`:
+  ```
+  E  PlaybackController  ERROR item=video-welcome: Source error
+  ```
+  pa nova stavka posle 3s.
+
+---
+
 ## 6. Provera da su podaci stvarno u bazi (Room)
 
 1. Dok aplikacija radi na emulatoru: **View → Tool Windows → App Inspection**.
