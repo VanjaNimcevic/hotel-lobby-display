@@ -9,6 +9,7 @@ import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 
 import android.widget.ImageView;
+import android.widget.TextView;
 
 import androidx.fragment.app.FragmentActivity;
 import androidx.media3.ui.PlayerView;
@@ -16,6 +17,7 @@ import androidx.media3.ui.PlayerView;
 import com.vanja.hotellobbydisplay.data.PlaylistRepository;
 import com.vanja.hotellobbydisplay.data.local.PlaylistItemEntity;
 import com.vanja.hotellobbydisplay.player.ImageRenderer;
+import com.vanja.hotellobbydisplay.player.TextRenderer;
 import com.vanja.hotellobbydisplay.player.VideoRenderer;
 
 import java.util.ArrayList;
@@ -26,14 +28,17 @@ public class MainActivity extends FragmentActivity {
     private static final String TAG = "MainActivity";
     private static final String TYPE_VIDEO = "VIDEO";
     private static final String TYPE_IMAGE = "IMAGE";
+    private static final String TYPE_TEXT = "TEXT";
+    private static final String TYPE_BANNER = "BANNER";
 
     private PlaylistRepository playlistRepository;
     private VideoRenderer videoRenderer;
     private ImageRenderer imageRenderer;
+    private TextRenderer textRenderer;
 
-    // Temporary driver (APV-15 + APV-16): plays VIDEO and IMAGE items in a
-    // loop. Replaced by TimelineScheduler (APV-19) + PlaybackController (APV-20),
-    // which will handle every type and the real schedule.
+    // Temporary driver (APV-15 + APV-16 + APV-17): plays VIDEO, IMAGE, TEXT and
+    // BANNER items in a loop; other types are skipped for now. Replaced by
+    // TimelineScheduler (APV-19) + PlaybackController (APV-20).
     private static final long RETRY_DELAY_MS = 3_000L;
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private final List<PlaylistItemEntity> playbackItems = new ArrayList<>();
@@ -50,6 +55,9 @@ public class MainActivity extends FragmentActivity {
 
         ImageView imageView = findViewById(R.id.image_view);
         imageRenderer = new ImageRenderer(this, imageView);
+
+        TextView textView = findViewById(R.id.text_view);
+        textRenderer = new TextRenderer(textView);
 
         playlistRepository = PlaylistRepository.getInstance(this);
         loadPlaylist();
@@ -68,13 +76,12 @@ public class MainActivity extends FragmentActivity {
 
                 playbackItems.clear();
                 for (PlaylistItemEntity item : enabledItems) {
-                    boolean supported = TYPE_VIDEO.equals(item.getType())
-                            || TYPE_IMAGE.equals(item.getType());
-                    if (supported && item.getUrl() != null) {
+                    if (hasPlayableContent(item)) {
                         playbackItems.add(item);
                     }
                 }
-                Log.i(TAG, "Playable items (VIDEO/IMAGE for now): " + playbackItems.size());
+                Log.i(TAG, "Playable items (VIDEO/IMAGE/TEXT/BANNER for now): "
+                        + playbackItems.size());
                 currentItemIndex = 0;
                 playCurrentItem();
             }
@@ -86,10 +93,22 @@ public class MainActivity extends FragmentActivity {
         });
     }
 
+    /** VIDEO/IMAGE need a url; TEXT/BANNER need text. Anything else is not renderable yet. */
+    private boolean hasPlayableContent(PlaylistItemEntity item) {
+        String type = item.getType();
+        if (TYPE_VIDEO.equals(type) || TYPE_IMAGE.equals(type)) {
+            return item.getUrl() != null;
+        }
+        if (TYPE_TEXT.equals(type) || TYPE_BANNER.equals(type)) {
+            return item.getText() != null;
+        }
+        return false;
+    }
+
     /**
      * Temporary driver: show the current item with the matching renderer, then
-     * advance on finish/error. Only one of video_view / image_view is ever
-     * visible - the other renderer is stopped first.
+     * advance on finish/error. Only one renderer view is ever visible - every
+     * other renderer is stopped first.
      */
     private void playCurrentItem() {
         if (playbackItems.isEmpty()) {
@@ -99,46 +118,65 @@ public class MainActivity extends FragmentActivity {
 
         videoRenderer.release();
         imageRenderer.cancelPending();
+        textRenderer.cancelPending();
 
         View videoView = findViewById(R.id.video_view);
         View imageView = findViewById(R.id.image_view);
+        View textView = findViewById(R.id.text_view);
+        videoView.setVisibility(View.GONE);
+        imageView.setVisibility(View.GONE);
+        textView.setVisibility(View.GONE);
 
         PlaylistItemEntity item = playbackItems.get(currentItemIndex);
         Log.i(TAG, "ITEM " + (currentItemIndex + 1) + "/" + playbackItems.size()
                 + " -> " + item.getId() + " (" + item.getType() + ")");
 
-        if (TYPE_VIDEO.equals(item.getType())) {
-            imageView.setVisibility(View.GONE);
-            videoView.setVisibility(View.VISIBLE);
-            videoRenderer.play(item.getUrl(), new VideoRenderer.Listener() {
-                @Override
-                public void onFinished() {
-                    advanceToNextItem(0L);
-                }
+        switch (item.getType()) {
+            case TYPE_VIDEO:
+                videoView.setVisibility(View.VISIBLE);
+                videoRenderer.play(item.getUrl(), new VideoRenderer.Listener() {
+                    @Override
+                    public void onFinished() {
+                        advanceToNextItem(0L);
+                    }
 
-                @Override
-                public void onError(String message) {
-                    Log.e(TAG, "Skipping VIDEO " + item.getId() + " after error: " + message);
-                    advanceToNextItem(RETRY_DELAY_MS);
-                }
-            });
-        } else {
-            videoView.setVisibility(View.GONE);
-            imageView.setVisibility(View.VISIBLE);
-            imageRenderer.play(item.getUrl(), item.getDurationSec(), item.getMetadataScaleType(),
-                    new ImageRenderer.Listener() {
-                        @Override
-                        public void onFinished() {
-                            advanceToNextItem(0L);
-                        }
+                    @Override
+                    public void onError(String message) {
+                        Log.e(TAG, "Skipping VIDEO " + item.getId() + " after error: " + message);
+                        advanceToNextItem(RETRY_DELAY_MS);
+                    }
+                });
+                break;
 
-                        @Override
-                        public void onError(String message) {
-                            Log.e(TAG, "Skipping IMAGE " + item.getId()
-                                    + " after error: " + message);
-                            advanceToNextItem(RETRY_DELAY_MS);
-                        }
-                    });
+            case TYPE_IMAGE:
+                imageView.setVisibility(View.VISIBLE);
+                imageRenderer.play(item.getUrl(), item.getDurationSec(), item.getMetadataScaleType(),
+                        new ImageRenderer.Listener() {
+                            @Override
+                            public void onFinished() {
+                                advanceToNextItem(0L);
+                            }
+
+                            @Override
+                            public void onError(String message) {
+                                Log.e(TAG, "Skipping IMAGE " + item.getId()
+                                        + " after error: " + message);
+                                advanceToNextItem(RETRY_DELAY_MS);
+                            }
+                        });
+                break;
+
+            case TYPE_TEXT:
+            case TYPE_BANNER:
+                textView.setVisibility(View.VISIBLE);
+                textRenderer.play(item.getText(), item.getDurationSec(),
+                        item.getMetadataBannerPosition(), () -> advanceToNextItem(0L));
+                break;
+
+            default:
+                // WEB_PAGE (APV-18) / LAYOUT (APV-30 bonus) - not renderable yet.
+                Log.i(TAG, "Skipping unsupported type for now: " + item.getType());
+                advanceToNextItem(0L);
         }
     }
 
@@ -162,13 +200,16 @@ public class MainActivity extends FragmentActivity {
     protected void onStop() {
         super.onStop();
         // Stop every renderer and drop any pending "next item" callback while
-        // the app is not visible (APV-15/16 lifecycle rule).
+        // the app is not visible (APV-15/16/17 lifecycle rule).
         uiHandler.removeCallbacksAndMessages(null);
         if (videoRenderer != null) {
             videoRenderer.release();
         }
         if (imageRenderer != null) {
             imageRenderer.cancelPending();
+        }
+        if (textRenderer != null) {
+            textRenderer.cancelPending();
         }
     }
 
