@@ -8,6 +8,7 @@
     images look right on a lobby TV.
 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/player_root"
     android:layout_width="match_parent"
@@ -17,13 +18,16 @@
     tools:context=".MainActivity"
     tools:deviceIds="tv">
 
-    <!-- VIDEO: Media3 PlayerView is attached here at runtime (APV-15). -->
-    <FrameLayout
-        android:id="@+id/video_container"
+    <!-- VIDEO: Media3 player surface. use_controller=false hides all playback
+         controls (this is signage, not a media player). -->
+    <androidx.media3.ui.PlayerView
+        android:id="@+id/video_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@android:color/black"
-        android:visibility="gone" />
+        android:visibility="gone"
+        app:resize_mode="fit"
+        app:use_controller="false" />
 
     <!-- IMAGE: fitCenter keeps signage artwork uncropped on any panel ratio. -->
     <ImageView

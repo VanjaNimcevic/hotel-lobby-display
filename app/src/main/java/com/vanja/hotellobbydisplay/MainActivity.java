@@ -1,16 +1,21 @@
 package com.vanja.hotellobbydisplay;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 
 import androidx.fragment.app.FragmentActivity;
+import androidx.media3.ui.PlayerView;
 
 import com.vanja.hotellobbydisplay.data.PlaylistRepository;
 import com.vanja.hotellobbydisplay.data.local.PlaylistItemEntity;
+import com.vanja.hotellobbydisplay.player.VideoRenderer;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends FragmentActivity {
@@ -18,12 +23,23 @@ public class MainActivity extends FragmentActivity {
     private static final String TAG = "MainActivity";
 
     private PlaylistRepository playlistRepository;
+    private VideoRenderer videoRenderer;
+
+    // Temporary APV-15 driver: just the VIDEO items, played in a loop.
+    // Replaced by TimelineScheduler (APV-19) + PlaybackController (APV-20).
+    private static final long RETRY_DELAY_MS = 3_000L;
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
+    private final List<PlaylistItemEntity> videoItems = new ArrayList<>();
+    private int currentVideoIndex = 0;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         hideSystemUI();
+
+        PlayerView videoView = findViewById(R.id.video_view);
+        videoRenderer = new VideoRenderer(this, videoView);
 
         playlistRepository = PlaylistRepository.getInstance(this);
         loadPlaylist();
@@ -39,10 +55,16 @@ public class MainActivity extends FragmentActivity {
             @Override
             public void onPlaylistReady(List<PlaylistItemEntity> enabledItems) {
                 Log.i(TAG, "Playlist ready: " + enabledItems.size() + " enabled items");
+
+                videoItems.clear();
                 for (PlaylistItemEntity item : enabledItems) {
-                    Log.i(TAG, "  item -> " + item.getId() + " (" + item.getType()
-                            + ", " + item.getDurationSec() + "s)");
+                    if ("VIDEO".equals(item.getType()) && item.getUrl() != null) {
+                        videoItems.add(item);
+                    }
                 }
+                Log.i(TAG, "VIDEO items: " + videoItems.size());
+                currentVideoIndex = 0;
+                playCurrentVideo();
             }
 
             @Override
@@ -50,6 +72,60 @@ public class MainActivity extends FragmentActivity {
                 Log.e(TAG, "Could not load playlist: " + message);
             }
         });
+    }
+
+    /** APV-15 temporary driver: play the current VIDEO item; advance on finish/error. */
+    private void playCurrentVideo() {
+        if (videoItems.isEmpty()) {
+            Log.i(TAG, "No VIDEO items to play");
+            return;
+        }
+
+        PlaylistItemEntity item = videoItems.get(currentVideoIndex);
+        findViewById(R.id.video_view).setVisibility(View.VISIBLE);
+        Log.i(TAG, "VIDEO " + (currentVideoIndex + 1) + "/" + videoItems.size()
+                + " -> " + item.getId());
+
+        videoRenderer.play(item.getUrl(), new VideoRenderer.Listener() {
+            @Override
+            public void onFinished() {
+                advanceToNextVideo(0L);
+            }
+
+            @Override
+            public void onError(String message) {
+                Log.e(TAG, "Skipping VIDEO " + item.getId() + " after error: " + message);
+                // Wait a bit so a fully broken playlist does not spin the network.
+                advanceToNextVideo(RETRY_DELAY_MS);
+            }
+        });
+    }
+
+    private void advanceToNextVideo(long delayMs) {
+        uiHandler.postDelayed(() -> {
+            currentVideoIndex = (currentVideoIndex + 1) % videoItems.size();
+            playCurrentVideo();
+        }, delayMs);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        // Returning from the background: re-create the player and resume the loop.
+        if (!videoItems.isEmpty()) {
+            playCurrentVideo();
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        // Free the player and drop any pending "next video" callback while the
+        // app is not visible (APV-15 lifecycle rule).
+        uiHandler.removeCallbacksAndMessages(null);
+        if (videoRenderer != null) {
+            videoRenderer.release();
+        }
     }
 
     @Override

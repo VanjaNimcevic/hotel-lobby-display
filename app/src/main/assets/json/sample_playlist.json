@@ -21,7 +21,7 @@
       "id": "video-welcome",
       "type": "VIDEO",
       "text": null,
-      "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "url": "https://media.w3.org/2010/05/sintel/trailer.mp4",
       "durationSec": 0,
       "orderIndex": 1,
       "enabled": true,
@@ -122,7 +122,7 @@
         "regions": [
           {
             "type": "VIDEO",
-            "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
+            "url": "https://media.w3.org/2010/05/bunny/trailer.mp4",
             "text": null
           },
           {

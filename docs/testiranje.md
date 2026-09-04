@@ -151,6 +151,53 @@ Posle testa **vrati `PLAYLIST_URL` na staru vrednost.**
 
 ---
 
+## 5b. Test APV-15 — video reprodukcija
+
+Playlista ima jednu `VIDEO` stavku (`video-welcome`, W3C "Sintel" trailer, ~50 s).
+
+**Normalno:**
+1. Pokreni na TV emulatoru uz uključen internet.
+2. Posle par sekundi (dok se video bafuje) trebalo bi da se **vidi video preko
+   celog ekrana**, bez ikakvih kontrola.
+3. Logcat `tag:VideoRenderer | tag:MainActivity`:
+   ```
+   I  MainActivity   VIDEO items: 1
+   I  MainActivity   VIDEO 1/1 -> video-welcome
+   I  VideoRenderer  Playing video: https://media.w3.org/2010/05/sintel/trailer.mp4
+   ... (~50 s kasnije) ...
+   I  VideoRenderer  Video ended: https://media.w3.org/2010/05/sintel/trailer.mp4
+   I  MainActivity   VIDEO 1/1 -> video-welcome        (kreće ponovo - petlja)
+   ```
+
+> Napomena: originalni URL iz APV-5
+> (`commondatastorage.googleapis.com/gtv-videos-bucket/...`) je u međuvremenu
+> počeo da vraća HTTP 403, pa je zamenjen W3C-jevim test videom. To je bio i
+> nesvestan test greške — vidiš dole.
+
+**Test greške (video se ne učita):**
+1. U `app/src/main/assets/json/sample_playlist.json` privremeno promeni `url`
+   stavke `video-welcome` u `https://example.com/nema.mp4`.
+2. Deinstaliraj aplikaciju sa emulatora (da se baza osveži) pa Run ponovo.
+3. Logcat:
+   ```
+   E  VideoRenderer  Video error for https://example.com/nema.mp4: ERROR_CODE_IO_BAD_HTTP_STATUS
+   E  MainActivity   Skipping VIDEO video-welcome after error: ...
+   ... (pauza 3 s) ...
+   I  VideoRenderer  Playing video: https://example.com/nema.mp4   (novi pokušaj)
+   ```
+   Aplikacija **ne puca**. Posle svake greške čeka se 3 s (`RETRY_DELAY_MS`) da
+   se mreža ne zatrpava kad je stavka trajno loša.
+4. Vrati `sample_playlist.json`: `git checkout -- app/src/main/assets/json/sample_playlist.json`.
+
+**Test lifecycle (oslobađanje plejera):**
+1. Dok video ide, pritisni **Home** dugme na emulatoru (ili ikonicu kuće u
+   bočnoj traci).
+2. Vrati se u aplikaciju (Recents / ponovo je otvori).
+3. U Logcat-u nema greške ("player released"/re-create), video se ponovo
+   pokrene od početka.
+
+---
+
 ## 6. Provera da su podaci stvarno u bazi (Room)
 
 1. Dok aplikacija radi na emulatoru: **View → Tool Windows → App Inspection**.
