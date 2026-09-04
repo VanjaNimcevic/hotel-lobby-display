@@ -11,6 +11,7 @@ import android.widget.TextView;
 
 import androidx.media3.ui.PlayerView;
 
+import com.vanja.hotellobbydisplay.data.PlaybackLogger;
 import com.vanja.hotellobbydisplay.data.local.PlaylistItemEntity;
 import com.vanja.hotellobbydisplay.player.ImageRenderer;
 import com.vanja.hotellobbydisplay.player.TextRenderer;
@@ -59,6 +60,7 @@ public class PlaybackController {
     private final View webContainer;
 
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
+    private final PlaybackLogger playbackLogger;
 
     private TimelineScheduler scheduler;
     private boolean running;
@@ -74,6 +76,8 @@ public class PlaybackController {
         this.imageRenderer = new ImageRenderer(context, imageView);
         this.textRenderer = new TextRenderer(textView);
         this.webRenderer = new WebRenderer(context, webContainer);
+
+        this.playbackLogger = new PlaybackLogger(context);
     }
 
     /**
@@ -135,6 +139,7 @@ public class PlaybackController {
 
         switch (item.getType()) {
             case TYPE_VIDEO:
+                playbackLogger.logStart(item.getId());
                 fadeIn(videoView);
                 videoRenderer.play(item.getUrl(), new VideoRenderer.Listener() {
                     @Override
@@ -152,6 +157,7 @@ public class PlaybackController {
                 break;
 
             case TYPE_IMAGE:
+                playbackLogger.logStart(item.getId());
                 fadeIn(imageView);
                 imageRenderer.play(item.getUrl(), item.getDurationSec(), item.getMetadataScaleType(),
                         new ImageRenderer.Listener() {
@@ -171,6 +177,7 @@ public class PlaybackController {
 
             case TYPE_TEXT:
             case TYPE_BANNER:
+                playbackLogger.logStart(item.getId());
                 fadeIn(textView);
                 textRenderer.play(item.getText(), item.getDurationSec(),
                         item.getMetadataBannerPosition(), () -> {
@@ -180,6 +187,7 @@ public class PlaybackController {
                 break;
 
             case TYPE_WEB_PAGE:
+                playbackLogger.logStart(item.getId());
                 fadeIn(webContainer);
                 webRenderer.play(item.getUrl(), item.getDurationSec(),
                         item.isMetadataJavascriptEnabled(), new WebRenderer.Listener() {
@@ -206,10 +214,12 @@ public class PlaybackController {
 
     private void logFinished(PlaylistItemEntity item) {
         Log.i(TAG, "FINISH item=" + item.getId());
+        playbackLogger.logFinished(item.getId());
     }
 
     private void logError(PlaylistItemEntity item, String message) {
         Log.e(TAG, "ERROR item=" + item.getId() + ": " + message);
+        playbackLogger.logError(item.getId(), message);
     }
 
     private void stopAllRenderers() {

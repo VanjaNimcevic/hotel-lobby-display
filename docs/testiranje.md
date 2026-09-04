@@ -334,6 +334,32 @@ start/kraj stavke).
 
 ---
 
+## 5g. Test APV-21 — playback logovi u bazi
+
+1. Pokreni app (deinstaliraj prvo ako baza ima staru šemu).
+2. Pusti ga da odigra bar 3-4 stavke.
+3. Logcat `tag:PlaybackLogger`:
+   ```
+   I  PlaybackLogger  STARTED item=video-welcome (row 1)
+   I  PlaybackLogger  COMPLETED item=video-welcome (row 1)
+   I  PlaybackLogger  STARTED item=image-pool (row 2)
+   I  PlaybackLogger  COMPLETED item=image-pool (row 2)
+   ```
+4. **Database Inspector** → `hotel_lobby.db` → tabela `playback_logs`:
+   - broj redova = broju odigranih stavki
+   - svaki red ima `itemId`, `startedAt`, `finishedAt` (veće od `startedAt`),
+     `status = COMPLETED`, `errorMessage = null`
+5. **Test greške:** privremeno pokvari neki URL (npr. `video-welcome`) →
+   deinstaliraj pa Run → taj red u bazi dobije `status = ERROR` i popunjen
+   `errorMessage`. Logcat: `E PlaybackController ERROR item=... : ...` pa
+   `I PlaybackLogger ERROR item=... (row N)`.
+6. **LAYOUT ne pravi red:** `layout-split` se pojavljuje u
+   `tag:PlaybackController` logu ("Skipping unsupported type: LAYOUT") ali
+   **ne** dobija red u `playback_logs` — pošto se render nikad stvarno ne
+   pokrene.
+
+---
+
 ## 6. Provera da su podaci stvarno u bazi (Room)
 
 1. Dok aplikacija radi na emulatoru: **View → Tool Windows → App Inspection**.
