@@ -10,8 +10,6 @@ import com.vanja.hotellobbydisplay.data.local.MediaCacheEntity;
 import java.io.File;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 
 /**
  * Manages the on-device cache of downloaded media files (APV-22).
@@ -21,14 +19,17 @@ import java.util.concurrent.Executors;
  *   <li>own the cache directory inside app private storage;</li>
  *   <li>answer "is there a local copy of this URL?" and "what is its path?"
  *       (used by APV-24 to prefer local files during playback);</li>
- *   <li>record downloads in the {@code media_cache} table (filled in by the
- *       download logic in APV-23);</li>
+ *   <li>record downloads in the {@code media_cache} table (called from the
+ *       download worker in APV-23);</li>
  *   <li>delete cached files that the current playlist no longer needs.</li>
  * </ul>
  *
- * <p>The "is it cached / what is the path" checks only touch the file system
- * and run synchronously. Anything that writes to Room runs on a background
- * thread.</p>
+ * <p>{@link #isCached} / {@link #localPathIfAvailable} / {@link #fileFor} only
+ * touch the file system and are safe to call from any thread. The methods that
+ * write to Room ({@link #markDownloaded}, {@link #markStatus},
+ * {@link #cleanUpUnused}) are synchronous and MUST be called off the main
+ * thread - their only caller today is {@link MediaDownloadWorker}, which
+ * already runs on a background thread.</p>
  */
 public class MediaCacheManager {
 
@@ -39,7 +40,6 @@ public class MediaCacheManager {
 
     private final File cacheDir;
     private final MediaCacheDao dao;
-    private final Executor backgroundExecutor = Executors.newSingleThreadExecutor();
 
     public MediaCacheManager(Context context) {
         Context app = context.getApplicationContext();
@@ -77,66 +77,60 @@ public class MediaCacheManager {
         return isCached(sourceUrl) ? fileFor(sourceUrl).getAbsolutePath() : null;
     }
 
-    /** Records in {@code media_cache} that a file has finished downloading (APV-23). */
+    /** Records in {@code media_cache} that a file has finished downloading. Call off the main thread. */
     public void markDownloaded(String sourceUrl, long fileSizeBytes) {
-        backgroundExecutor.execute(() -> {
-            MediaCacheEntity entry = new MediaCacheEntity();
-            entry.setSourceUrl(sourceUrl);
-            entry.setLocalFilePath(fileFor(sourceUrl).getAbsolutePath());
-            entry.setStatus("COMPLETED");
-            entry.setFileSizeBytes(fileSizeBytes);
-            entry.setUpdatedAt(System.currentTimeMillis());
-            dao.upsert(entry);
-            Log.i(TAG, "Cached " + sourceUrl + " (" + fileSizeBytes + " bytes)");
-        });
+        MediaCacheEntity entry = new MediaCacheEntity();
+        entry.setSourceUrl(sourceUrl);
+        entry.setLocalFilePath(fileFor(sourceUrl).getAbsolutePath());
+        entry.setStatus("COMPLETED");
+        entry.setFileSizeBytes(fileSizeBytes);
+        entry.setUpdatedAt(System.currentTimeMillis());
+        dao.upsert(entry);
+        Log.i(TAG, "Cached " + sourceUrl + " (" + fileSizeBytes + " bytes)");
     }
 
-    /** Records a status change for a URL (e.g. DOWNLOADING, FAILED) in {@code media_cache}. */
+    /** Records a status change (e.g. DOWNLOADING, FAILED) in {@code media_cache}. Call off the main thread. */
     public void markStatus(String sourceUrl, String status) {
-        backgroundExecutor.execute(() -> {
-            MediaCacheEntity entry = new MediaCacheEntity();
-            entry.setSourceUrl(sourceUrl);
-            entry.setLocalFilePath(null);
-            entry.setStatus(status);
-            entry.setFileSizeBytes(0);
-            entry.setUpdatedAt(System.currentTimeMillis());
-            dao.upsert(entry);
-            Log.i(TAG, "Status " + status + " for " + sourceUrl);
-        });
+        MediaCacheEntity entry = new MediaCacheEntity();
+        entry.setSourceUrl(sourceUrl);
+        entry.setLocalFilePath(null);
+        entry.setStatus(status);
+        entry.setFileSizeBytes(0);
+        entry.setUpdatedAt(System.currentTimeMillis());
+        dao.upsert(entry);
+        Log.i(TAG, "Status " + status + " for " + sourceUrl);
     }
 
     /**
      * Deletes cached files (and their {@code media_cache} rows) for URLs that
-     * are no longer in the current playlist.
+     * are no longer in the current playlist. Call off the main thread.
      *
      * @param neededUrls the media URLs the current playlist still uses
      */
     public void cleanUpUnused(Set<String> neededUrls) {
-        backgroundExecutor.execute(() -> {
-            Set<String> keepFileNames = new HashSet<>();
-            for (String url : neededUrls) {
-                keepFileNames.add(buildFileName(url));
-            }
+        Set<String> keepFileNames = new HashSet<>();
+        for (String url : neededUrls) {
+            keepFileNames.add(buildFileName(url));
+        }
 
-            // 1. Drop DB rows + files for URLs the playlist no longer references.
-            for (MediaCacheEntity entry : dao.getAll()) {
-                if (!neededUrls.contains(entry.getSourceUrl())) {
-                    deleteFile(entry.getLocalFilePath());
-                    dao.deleteByUrl(entry.getSourceUrl());
-                    Log.i(TAG, "Removed cache entry for " + entry.getSourceUrl());
+        // 1. Drop DB rows + files for URLs the playlist no longer references.
+        for (MediaCacheEntity entry : dao.getAll()) {
+            if (!neededUrls.contains(entry.getSourceUrl())) {
+                deleteFile(entry.getLocalFilePath());
+                dao.deleteByUrl(entry.getSourceUrl());
+                Log.i(TAG, "Removed cache entry for " + entry.getSourceUrl());
+            }
+        }
+
+        // 2. Drop stray files on disk that have no matching need.
+        File[] files = cacheDir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (!keepFileNames.contains(file.getName()) && file.delete()) {
+                    Log.i(TAG, "Deleted stray cache file: " + file.getName());
                 }
             }
-
-            // 2. Drop stray files on disk that have no matching DB row / need.
-            File[] files = cacheDir.listFiles();
-            if (files != null) {
-                for (File file : files) {
-                    if (!keepFileNames.contains(file.getName()) && file.delete()) {
-                        Log.i(TAG, "Deleted stray cache file: " + file.getName());
-                    }
-                }
-            }
-        });
+        }
     }
 
     private void deleteFile(String path) {

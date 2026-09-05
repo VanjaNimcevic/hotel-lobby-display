@@ -377,6 +377,37 @@ APV-23.
 
 ---
 
+## 5i. Test APV-23 — pozadinsko preuzimanje medija
+
+`PlaylistRepository` posle snimanja playliste pokrene `MediaDownloadWorker`
+(WorkManager) koji skine `VIDEO` i `IMAGE` fajlove.
+
+1. **Deinstaliraj** app (da keš/baza krenu čisti) pa Run, uz internet.
+2. Logcat `tag:MediaDownloadWorker | tag:HttpFileDownloader | tag:MediaCacheManager`:
+   ```
+   I  PlaylistRepository   Enqueued media download work
+   I  HttpFileDownloader   Downloaded https://.../Big_Buck_Bunny_360_10s_1MB.mp4 (991017 bytes)
+   I  MediaCacheManager    Cached https://.../Big_Buck_Bunny_360_10s_1MB.mp4 (991017 bytes)
+   I  HttpFileDownloader   Downloaded https://picsum.photos/1920/1080 (NNNNN bytes)
+   I  MediaDownloadWorker  Download pass done: 2 downloaded, 0 already cached, 0 failed
+   ```
+3. **Device Explorer** → `data/data/com.vanja.hotellobbydisplay/files/media_cache/`
+   → 2 fajla (heks ime + `.mp4` / `.jpg`).
+4. **Database Inspector** → `media_cache` → 2 reda, `status = COMPLETED`,
+   `localFilePath` popunjen, `fileSizeBytes > 0`.
+5. **"Ne preuzima opet":** pokreni app **ponovo** (bez deinstalacije) →
+   `Download pass done: 0 downloaded, 2 already cached, 0 failed`.
+6. **Neuspeh jednog fajla:** privremeno u `sample_playlist.json` promeni `url`
+   stavke `image-pool` u nepostojeći, deinstaliraj pa Run →
+   `W MediaDownloadWorker Failed to download ...`, red `media_cache` za taj URL
+   dobije `status = FAILED`, ali **video se svejedno preuzme**. Posao ide u
+   `retry` (vidljivo u Background Task Inspector-u).
+7. **Background Task Inspector:** App Inspection → Background Task Inspector →
+   `media-download` posao i njegovo stanje (ENQUEUED / RUNNING / SUCCEEDED /
+   RETRY).
+
+---
+
 ## 6. Provera da su podaci stvarno u bazi (Room)
 
 1. Dok aplikacija radi na emulatoru: **View → Tool Windows → App Inspection**.

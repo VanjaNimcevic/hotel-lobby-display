@@ -6,6 +6,12 @@ import android.os.Looper;
 import android.text.TextUtils;
 import android.util.Log;
 
+import androidx.work.Constraints;
+import androidx.work.ExistingWorkPolicy;
+import androidx.work.NetworkType;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkManager;
+
 import com.google.gson.Gson;
 import com.vanja.hotellobbydisplay.data.local.AppDatabase;
 import com.vanja.hotellobbydisplay.data.local.PlaylistDao;
@@ -161,7 +167,26 @@ public class PlaylistRepository {
         List<PlaylistItemEntity> stored = itemDao.getEnabledItems(playlistEntity.getPlaylistId());
         Log.i(TAG, "Stored playlist '" + playlistEntity.getPlaylistId() + "' with "
                 + itemEntities.size() + " items (" + stored.size() + " enabled)");
+
+        enqueueMediaDownload();
         return stored;
+    }
+
+    /**
+     * APV-23: kick off a background download of this playlist's VIDEO/IMAGE
+     * files. {@code REPLACE} so a freshly loaded playlist supersedes any
+     * download still queued for the previous one.
+     */
+    private void enqueueMediaDownload() {
+        Constraints constraints = new Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build();
+        OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(MediaDownloadWorker.class)
+                .setConstraints(constraints)
+                .build();
+        WorkManager.getInstance(appContext).enqueueUniqueWork(
+                MediaDownloadWorker.WORK_NAME, ExistingWorkPolicy.REPLACE, request);
+        Log.i(TAG, "Enqueued media download work");
     }
 
     private List<PlaylistItemEntity> readEnabledItemsOfActivePlaylist() {
