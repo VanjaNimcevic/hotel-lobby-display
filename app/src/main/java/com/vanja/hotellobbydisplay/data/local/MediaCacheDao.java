@@ -30,4 +30,8 @@ public interface MediaCacheDao {
     @Query("UPDATE media_cache SET localFilePath = :localFilePath, status = :status, "
             + "updatedAt = :updatedAt WHERE sourceUrl = :sourceUrl")
     void updatePathAndStatus(String sourceUrl, String localFilePath, String status, long updatedAt);
+
+    /** Remove the cache row for one URL (used when its file is deleted, APV-22). */
+    @Query("DELETE FROM media_cache WHERE sourceUrl = :sourceUrl")
+    void deleteByUrl(String sourceUrl);
 }

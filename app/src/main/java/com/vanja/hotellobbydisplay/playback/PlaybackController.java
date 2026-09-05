@@ -11,6 +11,7 @@ import android.widget.TextView;
 
 import androidx.media3.ui.PlayerView;
 
+import com.vanja.hotellobbydisplay.data.MediaCacheManager;
 import com.vanja.hotellobbydisplay.data.PlaybackLogger;
 import com.vanja.hotellobbydisplay.data.local.PlaylistItemEntity;
 import com.vanja.hotellobbydisplay.player.ImageRenderer;
@@ -62,6 +63,9 @@ public class PlaybackController {
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private final PlaybackLogger playbackLogger;
 
+    /** Created so the media cache dir exists on startup; used from APV-24 (prefer local file). */
+    private final MediaCacheManager mediaCacheManager;
+
     private TimelineScheduler scheduler;
     private boolean running;
 
@@ -78,6 +82,7 @@ public class PlaybackController {
         this.webRenderer = new WebRenderer(context, webContainer);
 
         this.playbackLogger = new PlaybackLogger(context);
+        this.mediaCacheManager = new MediaCacheManager(context);
     }
 
     /**

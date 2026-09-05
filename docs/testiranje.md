@@ -360,6 +360,23 @@ start/kraj stavke).
 
 ---
 
+## 5h. Test APV-22 — MediaCacheManager
+
+Ovaj task samo pravi manager i keš direktorijum; download i punjenje tabele su
+APV-23.
+
+1. Pokreni app. Logcat `tag:MediaCacheManager`:
+   ```
+   I  MediaCacheManager  Media cache dir: /data/data/com.vanja.hotellobbydisplay/files/media_cache
+   ```
+2. **Device Explorer** (View → Tool Windows → Device Explorer) →
+   `data/data/com.vanja.hotellobbydisplay/files/` → treba da postoji folder
+   `media_cache` (prazan za sada).
+3. Build treba da prođe sa `BUILD SUCCESSFUL` (Room validira i novi
+   `deleteByUrl` upit u `MediaCacheDao`).
+
+---
+
 ## 6. Provera da su podaci stvarno u bazi (Room)
 
 1. Dok aplikacija radi na emulatoru: **View → Tool Windows → App Inspection**.
