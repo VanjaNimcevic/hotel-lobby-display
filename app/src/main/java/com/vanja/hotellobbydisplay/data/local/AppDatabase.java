@@ -24,7 +24,10 @@ import androidx.room.RoomDatabase;
                 MediaCacheEntity.class,
                 PlaybackLogEntity.class
         },
-        version = 1,
+        // v2 (APV-24): added PlaybackLogEntity.source. No Migration written -
+        // fallbackToDestructiveMigration() wipes and rebuilds (playback logs are
+        // debug data, safe to lose; the playlist reloads on next launch).
+        version = 2,
         exportSchema = false
 )
 public abstract class AppDatabase extends RoomDatabase {

@@ -140,13 +140,26 @@ public class PlaybackController {
 
         stopAllRenderers();
         hideAllViews();
-        Log.i(TAG, "START item=" + item.getId() + " type=" + item.getType());
 
-        switch (item.getType()) {
+        String type = item.getType();
+
+        // APV-24: for downloadable media (VIDEO/IMAGE), use a local copy if the
+        // download worker (APV-23) has one; otherwise fall back to the URL.
+        String localPath = null;
+        if (TYPE_VIDEO.equals(type) || TYPE_IMAGE.equals(type)) {
+            localPath = mediaCacheManager.localPathIfAvailable(item.getUrl());
+        }
+        String playSource = (localPath != null) ? localPath : item.getUrl();
+        String sourceLabel = sourceLabelFor(type, localPath);
+
+        Log.i(TAG, "START item=" + item.getId() + " type=" + type
+                + (sourceLabel != null ? " source=" + sourceLabel : ""));
+
+        switch (type) {
             case TYPE_VIDEO:
-                playbackLogger.logStart(item.getId());
+                playbackLogger.logStart(item.getId(), sourceLabel);
                 fadeIn(videoView);
-                videoRenderer.play(item.getUrl(), new VideoRenderer.Listener() {
+                videoRenderer.play(playSource, new VideoRenderer.Listener() {
                     @Override
                     public void onFinished() {
                         logFinished(item);
@@ -162,9 +175,9 @@ public class PlaybackController {
                 break;
 
             case TYPE_IMAGE:
-                playbackLogger.logStart(item.getId());
+                playbackLogger.logStart(item.getId(), sourceLabel);
                 fadeIn(imageView);
-                imageRenderer.play(item.getUrl(), item.getDurationSec(), item.getMetadataScaleType(),
+                imageRenderer.play(playSource, item.getDurationSec(), item.getMetadataScaleType(),
                         new ImageRenderer.Listener() {
                             @Override
                             public void onFinished() {
@@ -182,7 +195,7 @@ public class PlaybackController {
 
             case TYPE_TEXT:
             case TYPE_BANNER:
-                playbackLogger.logStart(item.getId());
+                playbackLogger.logStart(item.getId(), null);
                 fadeIn(textView);
                 textRenderer.play(item.getText(), item.getDurationSec(),
                         item.getMetadataBannerPosition(), () -> {
@@ -192,7 +205,7 @@ public class PlaybackController {
                 break;
 
             case TYPE_WEB_PAGE:
-                playbackLogger.logStart(item.getId());
+                playbackLogger.logStart(item.getId(), sourceLabel);
                 fadeIn(webContainer);
                 webRenderer.play(item.getUrl(), item.getDurationSec(),
                         item.isMetadataJavascriptEnabled(), new WebRenderer.Listener() {
@@ -212,9 +225,20 @@ public class PlaybackController {
 
             default:
                 // LAYOUT (bonus, APV-30) or any other type without a renderer yet.
-                Log.i(TAG, "Skipping unsupported type: " + item.getType());
+                Log.i(TAG, "Skipping unsupported type: " + type);
                 playNext(0L);
         }
+    }
+
+    /** "LOCAL"/"REMOTE" for video/image, "REMOTE" for a web page, null for text/banner. */
+    private String sourceLabelFor(String type, String localPath) {
+        if (TYPE_VIDEO.equals(type) || TYPE_IMAGE.equals(type)) {
+            return (localPath != null) ? "LOCAL" : "REMOTE";
+        }
+        if (TYPE_WEB_PAGE.equals(type)) {
+            return "REMOTE";
+        }
+        return null;
     }
 
     private void logFinished(PlaylistItemEntity item) {

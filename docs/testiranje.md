@@ -408,6 +408,29 @@ APV-23.
 
 ---
 
+## 5j. Test APV-24 — lokalni fajl ima prednost
+
+1. **Deinstaliraj** app (nova v2 šema baze + čist keš), Run uz internet.
+2. **Prvi krug** (fajlovi se tek preuzimaju): Logcat `tag:PlaybackController`:
+   ```
+   I  PlaybackController  START item=video-welcome type=VIDEO source=REMOTE
+   I  PlaybackController  START item=image-pool type=IMAGE source=REMOTE
+   ```
+3. Sačekaj da download završi:
+   `I MediaDownloadWorker Download pass done: 2 downloaded, 0 already cached, 0 failed`.
+4. **Sledeći krug** playliste:
+   ```
+   I  PlaybackController  START item=video-welcome type=VIDEO source=LOCAL
+   I  PlaybackController  START item=image-pool type=IMAGE source=LOCAL
+   ```
+5. **Database Inspector** → `playback_logs` → nova kolona `source` = `LOCAL` /
+   `REMOTE` po redu; `TEXT`/`BANNER` redovi imaju `source = null`.
+6. **Brzi offline test:** posle preuzimanja, isključi mrežu na emulatoru,
+   restartuj app → video i slika i dalje idu, `source=LOCAL`. (Pun offline
+   scenario je APV-25.)
+
+---
+
 ## 6. Provera da su podaci stvarno u bazi (Room)
 
 1. Dok aplikacija radi na emulatoru: **View → Tool Windows → App Inspection**.

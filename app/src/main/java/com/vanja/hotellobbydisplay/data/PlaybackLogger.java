@@ -38,19 +38,26 @@ public class PlaybackLogger {
         this.dao = AppDatabase.getInstance(context.getApplicationContext()).playbackLogDao();
     }
 
-    /** Call right before an item starts playing. */
-    public void logStart(String itemId) {
+    /**
+     * Call right before an item starts playing.
+     *
+     * @param source "LOCAL" or "REMOTE" for media items (APV-24), or null for
+     *               items that have no source concept (text / banner)
+     */
+    public void logStart(String itemId, String source) {
         long startedAt = System.currentTimeMillis();
         PlaybackLogEntity entity = new PlaybackLogEntity();
         entity.setItemId(itemId);
         entity.setStartedAt(startedAt);
         entity.setStatus("STARTED");
+        entity.setSource(source);
 
         backgroundExecutor.execute(() -> {
             long id = dao.insert(entity);
             entity.setId(id);
             currentLog = entity;
-            Log.i(TAG, "STARTED item=" + itemId + " (row " + id + ")");
+            Log.i(TAG, "STARTED item=" + itemId
+                    + (source != null ? " source=" + source : "") + " (row " + id + ")");
         });
     }
 

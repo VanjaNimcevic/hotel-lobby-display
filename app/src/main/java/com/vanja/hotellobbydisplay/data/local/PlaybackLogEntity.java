@@ -31,6 +31,9 @@ public class PlaybackLogEntity {
     /** Error text when status is ERROR, otherwise null. */
     private String errorMessage;
 
+    /** "LOCAL" or "REMOTE" for media items (APV-24); null for text/banner. */
+    private String source;
+
     public long getId() {
         return id;
     }
@@ -77,5 +80,13 @@ public class PlaybackLogEntity {
 
     public void setErrorMessage(String errorMessage) {
         this.errorMessage = errorMessage;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String source) {
+        this.source = source;
     }
 }
