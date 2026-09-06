@@ -22,6 +22,7 @@ import com.vanja.hotellobbydisplay.model.PlaylistItemModel;
 import com.vanja.hotellobbydisplay.model.PlaylistModel;
 import com.vanja.hotellobbydisplay.util.AssetFileReader;
 import com.vanja.hotellobbydisplay.util.HttpTextFetcher;
+import com.vanja.hotellobbydisplay.util.NetworkMonitor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -119,15 +120,33 @@ public class PlaylistRepository {
     // ------------------------------------------------------------------
 
     private List<PlaylistItemEntity> loadAndStore() {
+        boolean online = NetworkMonitor.isOnline(appContext);
+        Log.i(TAG, "Network state: " + (online ? "ONLINE" : "OFFLINE"));
+
+        // APV-25: when offline, do not try the network - use the playlist
+        // already stored in Room (which may be a newer remote version fetched
+        // on a previous online run).
+        if (!online) {
+            List<PlaylistItemEntity> fromRoom = readEnabledItemsOfActivePlaylist();
+            if (!fromRoom.isEmpty()) {
+                Log.i(TAG, "Offline: using the playlist already in Room ("
+                        + fromRoom.size() + " enabled items)");
+                return fromRoom;
+            }
+            Log.w(TAG, "Offline and nothing stored yet - using the bundled asset");
+        }
+
         PlaylistModel model = null;
         String source = null;
 
-        // 1. Try the remote URL first.
-        String remoteJson = HttpTextFetcher.fetch(PLAYLIST_URL);
-        if (remoteJson != null) {
-            model = parser.parse(remoteJson);
-            if (model != null) {
-                source = "REMOTE";
+        // 1. Try the remote URL first (only worth it when online).
+        if (online) {
+            String remoteJson = HttpTextFetcher.fetch(PLAYLIST_URL);
+            if (remoteJson != null) {
+                model = parser.parse(remoteJson);
+                if (model != null) {
+                    source = "REMOTE";
+                }
             }
         }
 
@@ -143,7 +162,13 @@ public class PlaylistRepository {
         }
 
         if (model == null) {
-            throw new IllegalStateException("playlist could not be loaded from remote or assets");
+            // Last resort: whatever is already in Room, if anything.
+            List<PlaylistItemEntity> fromRoom = readEnabledItemsOfActivePlaylist();
+            if (!fromRoom.isEmpty()) {
+                Log.w(TAG, "Could not load a fresh playlist - using the one already in Room");
+                return fromRoom;
+            }
+            throw new IllegalStateException("playlist could not be loaded from remote, assets or Room");
         }
 
         Log.i(TAG, "Playlist loaded from " + source + " (playlistId=" + model.getPlaylistId()

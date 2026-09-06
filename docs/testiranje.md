@@ -431,6 +431,44 @@ APV-23.
 
 ---
 
+## 5k. Test APV-25 — rad bez interneta
+
+1. **Online, prvi put:** Run uz internet, sačekaj
+   `I MediaDownloadWorker Download pass done: 2 downloaded, ...`.
+2. **Isključi mrežu** emulatoru. TV emulator nema "Cellular" karticu u Extended
+   Controls, pa koristi jedno od:
+   - `adb shell cmd connectivity airplane-mode enable` (Android 11+), vraćanje
+     `... airplane-mode disable`
+   - `adb shell svc wifi disable`, vraćanje `adb shell svc wifi enable`
+   - u emulatoru: **Settings → Network & Internet** → isključi mrežu
+3. **Restartuj app** (ne deinstaliraj). Logcat
+   `tag:PlaylistRepository | tag:PlaybackController`:
+   ```
+   I  PlaylistRepository   Network state: OFFLINE
+   I  PlaylistRepository   Offline: using the playlist already in Room (5 enabled items)
+   I  PlaybackController    Network is now OFFLINE
+   I  PlaybackController    START item=video-welcome type=VIDEO source=LOCAL
+   I  PlaybackController    START item=image-pool type=IMAGE source=LOCAL
+   I  PlaybackController    OFFLINE - skipping item=web-info type=WEB_PAGE (no local copy)
+   I  PlaybackController    START item=text-welcome type=TEXT
+   ```
+   Na ekranu: video i slika idu (sa diska), web se preskoči, tekst/baner rade.
+   **App ne puca, ne zamrzava.**
+4. **Bez keša:** deinstaliraj app, ostavi mrežu isključenu, Run:
+   ```
+   W  PlaylistRepository   Offline and nothing stored yet - using the bundled asset
+   I  PlaybackController    OFFLINE - skipping item=video-welcome type=VIDEO (no local copy)
+   I  PlaybackController    OFFLINE - skipping item=image-pool type=IMAGE (no local copy)
+   I  PlaybackController    START item=text-welcome type=TEXT
+   ```
+   → puštaju se samo TEXT/BANNER.
+5. **Vrati mrežu** dok app radi → `I PlaybackController Network is now ONLINE`.
+
+Vrati mrežu posle testa (`adb shell cmd connectivity airplane-mode disable` ili
+`adb shell svc wifi enable`).
+
+---
+
 ## 6. Provera da su podaci stvarno u bazi (Room)
 
 1. Dok aplikacija radi na emulatoru: **View → Tool Windows → App Inspection**.

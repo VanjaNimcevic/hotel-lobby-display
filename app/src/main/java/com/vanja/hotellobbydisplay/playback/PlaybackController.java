@@ -18,6 +18,7 @@ import com.vanja.hotellobbydisplay.player.ImageRenderer;
 import com.vanja.hotellobbydisplay.player.TextRenderer;
 import com.vanja.hotellobbydisplay.player.VideoRenderer;
 import com.vanja.hotellobbydisplay.player.WebRenderer;
+import com.vanja.hotellobbydisplay.util.NetworkMonitor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,6 +48,12 @@ public class PlaybackController {
     /** How long to wait before checking again when nothing is currently eligible. */
     private static final long NOTHING_ELIGIBLE_RETRY_MS = 5_000L;
 
+    /**
+     * Small gap after skipping an item that cannot play offline. Keeps the loop
+     * from spinning if a whole playlist is un-cached media while offline.
+     */
+    private static final long OFFLINE_SKIP_DELAY_MS = 1_000L;
+
     /** Extra: simple fade-in when a new item's view appears, instead of a hard cut. */
     private static final long TRANSITION_MS = 400L;
 
@@ -62,15 +69,18 @@ public class PlaybackController {
 
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private final PlaybackLogger playbackLogger;
-
-    /** Created so the media cache dir exists on startup; used from APV-24 (prefer local file). */
     private final MediaCacheManager mediaCacheManager;
+    private final Context appContext;
 
     private TimelineScheduler scheduler;
     private boolean running;
 
+    /** Last known network state, so a change can be logged once instead of every cycle. */
+    private Boolean wasOnline;
+
     public PlaybackController(Context context, PlayerView videoView, ImageView imageView,
             TextView textView, ViewGroup webContainer) {
+        this.appContext = context.getApplicationContext();
         this.videoView = videoView;
         this.imageView = imageView;
         this.textView = textView;
@@ -142,6 +152,7 @@ public class PlaybackController {
         hideAllViews();
 
         String type = item.getType();
+        boolean online = isOnlineLogged();
 
         // APV-24: for downloadable media (VIDEO/IMAGE), use a local copy if the
         // download worker (APV-23) has one; otherwise fall back to the URL.
@@ -149,6 +160,15 @@ public class PlaybackController {
         if (TYPE_VIDEO.equals(type) || TYPE_IMAGE.equals(type)) {
             localPath = mediaCacheManager.localPathIfAvailable(item.getUrl());
         }
+
+        // APV-25: offline and this item can only come from the network -> skip it.
+        if (!online && !canPlayOffline(type, localPath)) {
+            Log.i(TAG, "OFFLINE - skipping item=" + item.getId() + " type=" + type
+                    + " (no local copy)");
+            playNext(OFFLINE_SKIP_DELAY_MS);
+            return;
+        }
+
         String playSource = (localPath != null) ? localPath : item.getUrl();
         String sourceLabel = sourceLabelFor(type, localPath);
 
@@ -228,6 +248,30 @@ public class PlaybackController {
                 Log.i(TAG, "Skipping unsupported type: " + type);
                 playNext(0L);
         }
+    }
+
+    /** Checks the network and logs ONLINE/OFFLINE once whenever the state changes. */
+    private boolean isOnlineLogged() {
+        boolean online = NetworkMonitor.isOnline(appContext);
+        if (wasOnline == null || wasOnline != online) {
+            Log.i(TAG, "Network is now " + (online ? "ONLINE" : "OFFLINE"));
+            wasOnline = online;
+        }
+        return online;
+    }
+
+    /**
+     * Can this item play with no internet? TEXT/BANNER always; VIDEO/IMAGE only
+     * if a local copy exists; WEB_PAGE and anything else never.
+     */
+    private boolean canPlayOffline(String type, String localPath) {
+        if (TYPE_TEXT.equals(type) || TYPE_BANNER.equals(type)) {
+            return true;
+        }
+        if (TYPE_VIDEO.equals(type) || TYPE_IMAGE.equals(type)) {
+            return localPath != null;
+        }
+        return false;
     }
 
     /** "LOCAL"/"REMOTE" for video/image, "REMOTE" for a web page, null for text/banner. */
