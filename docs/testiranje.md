@@ -469,6 +469,48 @@ Vrati mrežu posle testa (`adb shell cmd connectivity airplane-mode disable` ili
 
 ---
 
+## 5l. Test APV-26 — priority i emergency
+
+Uzorak ima dve normalno **isključene** demo stavke: `emergency-fire`
+(`isEmergency: true`) i `priority-notice` (`priority: 5`, `orderIndex: 99`).
+
+**Emergency preuzima ekran:**
+1. U `sample_playlist.json` postavi `"enabled": true` kod `emergency-fire`.
+2. Deinstaliraj app pa Run.
+3. Logcat `tag:PlaybackController`:
+   ```
+   I  PlaybackController  START item=emergency-fire type=TEXT
+   I  PlaybackController  FINISH item=emergency-fire
+   I  PlaybackController  START item=emergency-fire type=TEXT
+   ```
+   Na ekranu: **samo** emergency tekst, u krug. Ništa drugo.
+4. Vrati `"enabled": false`, deinstaliraj pa Run → normalna rotacija (video →
+   slika → tekst → ...).
+
+**Emergency poštuje raspored:**
+1. Kod `emergency-fire`: `"enabled": true` **i** `schedule.endAt` →
+   `"2020-01-01T00:00:00Z"` (prošlost).
+2. Deinstaliraj pa Run → emergency se **NE** aktivira, normalna playlista radi
+   (jer je van `startAt`/`endAt` prozora).
+3. Vrati `endAt` na `"2026-12-31T23:59:59Z"`.
+
+**Priority dolazi napred, ali ne izgladnjuje:**
+1. Kod `priority-notice`: `"enabled": true`.
+2. Deinstaliraj pa Run.
+3. Logcat — u svakom krugu `priority-notice` ide **prvi** (pre `video-welcome`),
+   uprkos `orderIndex: 99`:
+   ```
+   I  PlaybackController  START item=priority-notice type=TEXT
+   I  PlaybackController  START item=video-welcome type=VIDEO
+   I  PlaybackController  START item=image-pool type=IMAGE
+   ...
+   I  PlaybackController  START item=priority-notice type=TEXT   (novi krug)
+   ```
+   Ceo ostatak playliste se i dalje pušta.
+4. Vrati `"enabled": false`, ili `git checkout -- app/src/main/assets/json/sample_playlist.json`.
+
+---
+
 ## 6. Provera da su podaci stvarno u bazi (Room)
 
 1. Dok aplikacija radi na emulatoru: **View → Tool Windows → App Inspection**.

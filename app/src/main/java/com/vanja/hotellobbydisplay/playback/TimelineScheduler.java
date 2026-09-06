@@ -52,24 +52,32 @@ public class TimelineScheduler {
             return null;
         }
 
-        // Emergency / priority items jump the normal rotation.
+        // APV-26: an eligible EMERGENCY item takes over completely - it is
+        // returned every cycle, so nothing else plays, until it stops being
+        // eligible (disabled, or its startAt/endAt window closed), at which
+        // point the normal rotation simply resumes where it left off (the
+        // rotation cursor is not touched here).
         for (PlaylistItemEntity item : eligible) {
-            if (item.isEmergency() || item.getPriority() > 0) {
+            if (item.isEmergency()) {
                 return item;
             }
         }
 
-        // Normal items play in orderIndex order, looping forever.
-        List<PlaylistItemEntity> normal = new ArrayList<>(eligible);
-        normal.sort(Comparator.comparingInt(PlaylistItemEntity::getOrderIndex));
+        // Normal rotation: higher priority first, then orderIndex; loops forever.
+        // A non-emergency item with priority > 0 just sorts to the front of each
+        // loop - it still shares the rotation, it does not starve the rest.
+        List<PlaylistItemEntity> rotation = new ArrayList<>(eligible);
+        rotation.sort(Comparator
+                .comparingInt(PlaylistItemEntity::getPriority).reversed()
+                .thenComparingInt(PlaylistItemEntity::getOrderIndex));
 
-        if (normalIndex >= normal.size()) {
+        if (normalIndex >= rotation.size()) {
             // The eligible set can shrink between calls (e.g. an item's time
             // window just closed) - clamp instead of throwing.
             normalIndex = 0;
         }
-        PlaylistItemEntity item = normal.get(normalIndex);
-        normalIndex = (normalIndex + 1) % normal.size();
+        PlaylistItemEntity item = rotation.get(normalIndex);
+        normalIndex = (normalIndex + 1) % rotation.size();
         return item;
     }
 

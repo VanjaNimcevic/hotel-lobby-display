@@ -72,8 +72,40 @@ Each region has `type` (`VIDEO` or `TEXT`), plus `url` or `text` like a normal i
 
 ---
 
-## Emergency example
+## Priority and emergency (APV-26)
 
-The sample includes an item `emergency-fire` with `isEmergency: true` and
-`enabled: false`. To test emergency behaviour later, set its `enabled` to `true`
-and restart the app — it should interrupt the normal playlist.
+Every item has `priority` (number, default `0`) and `isEmergency` (boolean).
+`TimelineScheduler` uses them like this:
+
+**Emergency** (`isEmergency: true`)
+- While an emergency item is **eligible** — that is, `enabled: true` **and**
+  inside its `schedule` (`startAt`/`endAt`, `daysOfWeek`, `startTime`/`endTime`) —
+  it is the **only** thing that plays. Every playback cycle returns it again.
+- Nothing else (normal items, priority items) plays during that time.
+- The moment it stops being eligible (disabled, or its `endAt` passes), the
+  normal rotation **resumes from where it left off** — the emergency does not
+  advance or reset the normal rotation cursor.
+- If several emergency items are eligible at once, the one with the highest
+  `priority` wins.
+
+**Priority** (`priority > 0`, `isEmergency: false`)
+- The item stays part of the normal rotation but sorts to the **front** of each
+  loop: rotation order is `priority` descending, then `orderIndex` ascending.
+- It plays once per loop near the start — it does **not** take over the screen
+  the way an emergency item does.
+
+**Normal** (`priority: 0`, `isEmergency: false`)
+- Plain rotation by `orderIndex`, looping forever.
+
+### Trying it out
+
+The sample includes two normally-disabled items:
+
+| Item              | Setting                          | Flip `enabled` to `true` to see... |
+|-------------------|---------------------------------|-----------------------------------|
+| `emergency-fire`  | `isEmergency: true`, has a `schedule` covering all of 2026 | the emergency text takes over the whole screen; disable it again and normal playback resumes |
+| `priority-notice` | `priority: 5`, `orderIndex: 99` | it plays **first** each loop despite the high `orderIndex`, but the rest of the playlist still plays |
+
+To see `startAt`/`endAt` being respected, change `emergency-fire`'s
+`schedule.endAt` to a past date — it then stays inactive even with
+`enabled: true`.
