@@ -9,14 +9,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
-/**
- * Downloads a text resource over HTTP(S) with {@link HttpURLConnection}
- * (built into Android, no extra library).
- *
- * <p>Like {@link AssetFileReader}, it never throws: any problem - no internet,
- * timeout, bad URL, non-200 response - is logged and returns {@code null}.
- * Must be called off the main thread (Android forbids network on the UI thread).</p>
- */
+/** GETs a text resource. Returns null on any failure. Call off the main thread. */
 public final class HttpTextFetcher {
 
     private static final String TAG = "HttpTextFetcher";
@@ -24,15 +17,8 @@ public final class HttpTextFetcher {
     private static final int READ_TIMEOUT_MS = 10_000;
 
     private HttpTextFetcher() {
-        // Utility class - never instantiated.
     }
 
-    /**
-     * Sends a GET request and returns the response body as UTF-8 text.
-     *
-     * @param urlString the full URL to fetch
-     * @return the body text, or {@code null} if the request failed for any reason
-     */
     public static String fetch(String urlString) {
         HttpURLConnection connection = null;
         try {
@@ -56,13 +42,10 @@ public final class HttpTextFetcher {
                     builder.append(line).append('\n');
                 }
             }
-
             Log.i(TAG, "GET " + urlString + " ok (" + builder.length() + " chars)");
             return builder.toString();
 
         } catch (IOException e) {
-            // UnknownHostException (no internet), SocketTimeoutException,
-            // MalformedURLException, etc. all land here.
             Log.w(TAG, "GET " + urlString + " failed: " + e);
             return null;
         } finally {

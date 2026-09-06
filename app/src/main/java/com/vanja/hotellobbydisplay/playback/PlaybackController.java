@@ -24,13 +24,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Central playback controller (APV-20).
- *
- * <p>Owns the four renderers (APV-15..18) and asks a {@link TimelineScheduler}
- * (APV-19) which item to show next. This is where {@code MainActivity}'s old
- * temporary driver ends up - the Activity now just builds this class once and
- * calls {@link #setItems}, {@link #start} and {@link #stop} from its lifecycle
- * methods, nothing more.</p>
+ * Owns the four renderers and asks {@link TimelineScheduler} what to show next.
+ * The Activity just builds this and calls {@link #setItems}, {@link #start},
+ * {@link #stop}. Each cycle: pick an item, stop every renderer, show exactly
+ * one, log it, and schedule the next.
  */
 public class PlaybackController {
 
@@ -42,19 +39,11 @@ public class PlaybackController {
     private static final String TYPE_BANNER = "BANNER";
     private static final String TYPE_WEB_PAGE = "WEB_PAGE";
 
-    /** How long to wait before trying again after a playback error. */
     private static final long RETRY_DELAY_MS = 3_000L;
-
-    /** How long to wait before checking again when nothing is currently eligible. */
     private static final long NOTHING_ELIGIBLE_RETRY_MS = 5_000L;
-
-    /**
-     * Small gap after skipping an item that cannot play offline. Keeps the loop
-     * from spinning if a whole playlist is un-cached media while offline.
-     */
+    /** Gap after an offline skip, so an all-un-cached playlist does not spin. */
     private static final long OFFLINE_SKIP_DELAY_MS = 1_000L;
-
-    /** Extra: simple fade-in when a new item's view appears, instead of a hard cut. */
+    /** Fade-in duration when a new item's view appears. */
     private static final long TRANSITION_MS = 400L;
 
     private final VideoRenderer videoRenderer;
@@ -75,11 +64,8 @@ public class PlaybackController {
 
     private TimelineScheduler scheduler;
     private boolean running;
-
-    /** Where the current playlist came from (REMOTE / ASSETS / ROOM), for the debug overlay. */
     private String playlistSource = "-";
-
-    /** Last known network state, so a change can be logged once instead of every cycle. */
+    /** Last network state, so a change is logged once instead of every cycle. */
     private Boolean wasOnline;
 
     public PlaybackController(Context context, PlayerView videoView, ImageView imageView,
@@ -100,11 +86,7 @@ public class PlaybackController {
         this.debugOverlay = new DebugOverlay(debugOverlayView);
     }
 
-    /**
-     * Gives the controller the playlist to play, building a fresh
-     * {@link TimelineScheduler} from it. Call before (or after) {@link #start()}
-     * - {@code start()} waits until items are available.
-     */
+    /** Builds a fresh scheduler from the playlist. {@code start()} waits for this. */
     public void setItems(List<PlaylistItemEntity> items, String playlistSource) {
         this.playlistSource = playlistSource;
         List<PlaylistItemEntity> usable = new ArrayList<>();
@@ -120,7 +102,6 @@ public class PlaybackController {
         Log.i(TAG, "Scheduler ready with " + usable.size() + " item(s)");
     }
 
-    /** Starts (or resumes) playback. Safe to call before {@link #setItems} - it just waits. */
     public void start() {
         running = true;
         if (scheduler != null) {
@@ -128,7 +109,7 @@ public class PlaybackController {
         }
     }
 
-    /** Stops playback and releases every renderer. Call from the Activity's onStop. */
+    /** Stops playback and releases every renderer. */
     public void stop() {
         running = false;
         uiHandler.removeCallbacksAndMessages(null);
@@ -160,17 +141,15 @@ public class PlaybackController {
         String type = item.getType();
         boolean online = isOnlineLogged();
 
-        // APV-24: for downloadable media (VIDEO/IMAGE), use a local copy if the
-        // download worker (APV-23) has one; otherwise fall back to the URL.
+        // Prefer a downloaded local copy for VIDEO/IMAGE.
         String localPath = null;
         if (TYPE_VIDEO.equals(type) || TYPE_IMAGE.equals(type)) {
             localPath = mediaCacheManager.localPathIfAvailable(item.getUrl());
         }
 
-        // APV-25: offline and this item can only come from the network -> skip it.
+        // Offline and this item needs the network -> skip it.
         if (!online && !canPlayOffline(type, localPath)) {
-            Log.i(TAG, "OFFLINE - skipping item=" + item.getId() + " type=" + type
-                    + " (no local copy)");
+            Log.i(TAG, "OFFLINE - skipping item=" + item.getId() + " type=" + type);
             playNext(OFFLINE_SKIP_DELAY_MS);
             return;
         }
@@ -251,13 +230,11 @@ public class PlaybackController {
                 break;
 
             default:
-                // LAYOUT (bonus, APV-30) or any other type without a renderer yet.
-                Log.i(TAG, "Skipping unsupported type: " + type);
+                Log.i(TAG, "Skipping unsupported type: " + type); // LAYOUT etc.
                 playNext(0L);
         }
     }
 
-    /** Checks the network and logs ONLINE/OFFLINE once whenever the state changes. */
     private boolean isOnlineLogged() {
         boolean online = NetworkMonitor.isOnline(appContext);
         if (wasOnline == null || wasOnline != online) {
@@ -267,10 +244,6 @@ public class PlaybackController {
         return online;
     }
 
-    /**
-     * Can this item play with no internet? TEXT/BANNER always; VIDEO/IMAGE only
-     * if a local copy exists; WEB_PAGE and anything else never.
-     */
     private boolean canPlayOffline(String type, String localPath) {
         if (TYPE_TEXT.equals(type) || TYPE_BANNER.equals(type)) {
             return true;
@@ -281,7 +254,7 @@ public class PlaybackController {
         return false;
     }
 
-    /** "LOCAL"/"REMOTE" for video/image, "REMOTE" for a web page, null for text/banner. */
+    /** "LOCAL"/"REMOTE" for video/image, "REMOTE" for web, null for text/banner. */
     private String sourceLabelFor(String type, String localPath) {
         if (TYPE_VIDEO.equals(type) || TYPE_IMAGE.equals(type)) {
             return (localPath != null) ? "LOCAL" : "REMOTE";
@@ -316,7 +289,6 @@ public class PlaybackController {
         webContainer.setVisibility(View.GONE);
     }
 
-    /** Extra (not required by any task): fade the new view in instead of a hard cut. */
     private void fadeIn(View view) {
         view.animate().cancel();
         view.setAlpha(0f);
@@ -324,7 +296,7 @@ public class PlaybackController {
         view.animate().alpha(1f).setDuration(TRANSITION_MS).start();
     }
 
-    /** VIDEO/IMAGE/WEB_PAGE need a url; TEXT/BANNER need text. Other types pass through. */
+    /** VIDEO/IMAGE/WEB_PAGE need a url; TEXT/BANNER need text; other types pass through. */
     private boolean hasRequiredContent(PlaylistItemEntity item) {
         String type = item.getType();
         if (TYPE_VIDEO.equals(type) || TYPE_IMAGE.equals(type) || TYPE_WEB_PAGE.equals(type)) {
@@ -333,8 +305,6 @@ public class PlaybackController {
         if (TYPE_TEXT.equals(type) || TYPE_BANNER.equals(type)) {
             return item.getText() != null;
         }
-        // Unknown/other types (e.g. LAYOUT) pass through; the switch's default
-        // branch above skips them safely, with a clear log line, at play time.
         return true;
     }
 }

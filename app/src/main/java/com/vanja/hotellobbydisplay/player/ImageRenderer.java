@@ -19,16 +19,11 @@ import com.bumptech.glide.request.target.Target;
 import java.io.File;
 
 /**
- * Shows a single IMAGE playlist item on an {@link ImageView} for a fixed
- * duration.
- *
- * <p>Uses Glide (already a dependency from the TV project template) to load
- * the image from a remote URL or a local file. Unlike video, an image has no
- * natural "end" event, so the duration is timed with a {@link Handler}.</p>
+ * Shows one IMAGE item on an {@link ImageView} for a fixed duration (Glide loads
+ * it; an image has no "end" event, so a {@link Handler} times it out).
  */
 public class ImageRenderer {
 
-    /** Told when the duration has passed or the image failed to load. */
     public interface Listener {
         void onFinished();
 
@@ -36,11 +31,8 @@ public class ImageRenderer {
     }
 
     private static final String TAG = "ImageRenderer";
-
-    /** Used when the item's durationSec is missing or not positive. */
     private static final int DEFAULT_DURATION_SEC = 8;
-
-    /** Extra: slow "Ken Burns" zoom while the image is shown, so it does not feel static. */
+    /** Slow "Ken Burns" zoom so the still image does not feel static. */
     private static final float ZOOM_END_SCALE = 1.08f;
 
     private final Context appContext;
@@ -55,22 +47,11 @@ public class ImageRenderer {
         this.imageView = imageView;
     }
 
-    /**
-     * Loads and shows the image, then calls {@link Listener#onFinished()}
-     * after {@code durationSec} seconds.
-     *
-     * @param source     an {@code http(s)://} URL or a local file path
-     * @param durationSec how long to show the image; a value {@code <= 0}
-     *                    falls back to {@link #DEFAULT_DURATION_SEC}
-     * @param scaleType  "centerCrop" to fill the screen, anything else (or
-     *                   {@code null}) keeps the safe default "fitCenter"
-     */
+    /** {@code source} is an http(s):// URL or a local file path. */
     public void play(String source, int durationSec, String scaleType, Listener listener) {
         this.listener = listener;
-        // Only drop a stale timer here - NOT the full cancelPending(), which
-        // also cancels the view's animator. The caller (MainActivity) already
-        // stops the previous renderer and may have just started a fade-in on
-        // this same view; calling animate().cancel() here would kill that.
+        // Only the timer here, NOT animate().cancel() - the caller may have just
+        // started a fade-in on this same view.
         cancelPendingTimerOnly();
 
         imageView.setScaleType("centerCrop".equals(scaleType)
@@ -92,7 +73,7 @@ public class ImageRenderer {
                     @Override
                     public boolean onResourceReady(Drawable resource, Object model,
                             Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
-                        return false; // let Glide still set the drawable on the ImageView
+                        return false;
                     }
                 })
                 .into(imageView);
@@ -101,14 +82,9 @@ public class ImageRenderer {
         Log.i(TAG, "Showing image for " + seconds + "s: " + source);
         pendingDurationRunnable = this::notifyFinished;
         uiHandler.postDelayed(pendingDurationRunnable, seconds * 1000L);
-
         startZoom(seconds);
     }
 
-    /**
-     * Extra (not required by APV-16): a slow, steady zoom-in for the whole time
-     * the image is shown, so a still signage image still feels alive.
-     */
     private void startZoom(int seconds) {
         imageView.animate()
                 .scaleX(ZOOM_END_SCALE)
@@ -118,7 +94,7 @@ public class ImageRenderer {
                 .start();
     }
 
-    /** Cancels the pending "duration expired" callback and the zoom, if any. Safe to call anytime. */
+    /** Cancels the timer and the zoom, and resets scale. Safe to call anytime. */
     public void cancelPending() {
         cancelPendingTimerOnly();
         imageView.animate().cancel();
@@ -150,7 +126,6 @@ public class ImageRenderer {
         if (source != null && (source.startsWith("http://") || source.startsWith("https://"))) {
             return source;
         }
-        // Anything else is treated as a local file path.
         return new File(source);
     }
 }

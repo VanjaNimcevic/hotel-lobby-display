@@ -11,13 +11,9 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 /**
- * Writes playback history to the {@code playback_logs} Room table (APV-21).
- *
- * <p>{@link #logStart} inserts a row when an item starts. {@link #logFinished}
- * / {@link #logError} update that same row once the item ends. All writes run
- * on one background thread (Room forbids DB access on the main thread); the
- * caller ({@link com.vanja.hotellobbydisplay.playback.PlaybackController})
- * never waits for them.</p>
+ * Writes playback history to the {@code playback_logs} table: {@link #logStart}
+ * inserts a row, {@link #logFinished} / {@link #logError} update that same row.
+ * All writes run on one background thread.
  */
 public class PlaybackLogger {
 
@@ -26,29 +22,18 @@ public class PlaybackLogger {
     private final PlaybackLogDao dao;
     private final Executor backgroundExecutor = Executors.newSingleThreadExecutor();
 
-    /**
-     * The row for the item currently playing, kept in memory between
-     * {@link #logStart} and the matching finish/error call so the update goes
-     * to the same row instead of creating a new one. Only ever touched from
-     * {@code backgroundExecutor} (a single thread), so it needs no locking.
-     */
+    /** The current item's row, kept between logStart and finish. Only touched on backgroundExecutor. */
     private PlaybackLogEntity currentLog;
 
     public PlaybackLogger(Context context) {
         this.dao = AppDatabase.getInstance(context.getApplicationContext()).playbackLogDao();
     }
 
-    /**
-     * Call right before an item starts playing.
-     *
-     * @param source "LOCAL" or "REMOTE" for media items (APV-24), or null for
-     *               items that have no source concept (text / banner)
-     */
+    /** {@code source} is "LOCAL" / "REMOTE" for media, null for text/banner. */
     public void logStart(String itemId, String source) {
-        long startedAt = System.currentTimeMillis();
         PlaybackLogEntity entity = new PlaybackLogEntity();
         entity.setItemId(itemId);
-        entity.setStartedAt(startedAt);
+        entity.setStartedAt(System.currentTimeMillis());
         entity.setStatus("STARTED");
         entity.setSource(source);
 
@@ -61,12 +46,10 @@ public class PlaybackLogger {
         });
     }
 
-    /** Call when the item finishes normally. */
     public void logFinished(String itemId) {
         finish(itemId, "COMPLETED", null);
     }
 
-    /** Call when the item fails with a playback error. */
     public void logError(String itemId, String errorMessage) {
         finish(itemId, "ERROR", errorMessage);
     }
@@ -76,10 +59,7 @@ public class PlaybackLogger {
         backgroundExecutor.execute(() -> {
             PlaybackLogEntity entity = currentLog;
             if (entity == null || !itemId.equals(entity.getItemId())) {
-                // No matching STARTED row (e.g. logger was just created) -
-                // log to logcat only rather than update the wrong row.
-                Log.w(TAG, "No STARTED row for item=" + itemId + ", status=" + status
-                        + " - logcat only");
+                Log.w(TAG, "No STARTED row for item=" + itemId + ", status=" + status);
                 return;
             }
             entity.setFinishedAt(finishedAt);

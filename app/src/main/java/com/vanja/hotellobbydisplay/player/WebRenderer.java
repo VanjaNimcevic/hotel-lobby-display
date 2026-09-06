@@ -11,16 +11,12 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
 /**
- * Shows a single WEB_PAGE playlist item full screen for a fixed duration.
- *
- * <p>The {@link WebView} is created in {@link #play} and fully destroyed in
- * {@link #release} - it is never kept in the XML layout (see
- * {@code activity_main.xml}), which is how a WebView is prevented from leaking
- * the Activity.</p>
+ * Shows one WEB_PAGE item full screen for a fixed duration. The {@link WebView}
+ * is created in {@link #play} and destroyed in {@link #release} - never kept in
+ * the XML layout, so it cannot leak the Activity.
  */
 public class WebRenderer {
 
-    /** Told when the duration has passed or the page failed to load. */
     public interface Listener {
         void onFinished();
 
@@ -28,8 +24,6 @@ public class WebRenderer {
     }
 
     private static final String TAG = "WebRenderer";
-
-    /** Used when the item's durationSec is missing or not positive. */
     private static final int DEFAULT_DURATION_SEC = 15;
 
     private final Context appContext;
@@ -45,15 +39,6 @@ public class WebRenderer {
         this.container = container;
     }
 
-    /**
-     * Creates a WebView, loads the page and shows it, then calls
-     * {@link Listener#onFinished()} after {@code durationSec} seconds.
-     *
-     * @param url               the page to load
-     * @param durationSec       how long to show it; a value {@code <= 0} falls
-     *                          back to {@link #DEFAULT_DURATION_SEC}
-     * @param javascriptEnabled from the item's {@code metadata.javascriptEnabled}
-     */
     public void play(String url, int durationSec, boolean javascriptEnabled, Listener listener) {
         this.listener = listener;
         release();
@@ -66,12 +51,11 @@ public class WebRenderer {
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request,
                     WebResourceError error) {
+                // Only fail on the main page - ignore broken sub-resources (ads, images).
                 if (request.isForMainFrame()) {
                     Log.e(TAG, "WebView error for " + url + ": " + error.getDescription());
                     notifyError(String.valueOf(error.getDescription()));
                 }
-                // Errors on sub-resources (ads, trackers, missing images, ...)
-                // are ignored - the page itself still loaded.
             }
         });
 
@@ -85,7 +69,7 @@ public class WebRenderer {
         uiHandler.postDelayed(pendingDurationRunnable, seconds * 1000L);
     }
 
-    /** Stops the page, destroys the WebView and cancels the timer. Safe to call anytime. */
+    /** Destroys the WebView and cancels the timer. Safe to call anytime. */
     public void release() {
         cancelPending();
         if (webView != null) {
@@ -96,7 +80,6 @@ public class WebRenderer {
         }
     }
 
-    /** Cancels the pending "duration expired" callback, if any. Safe to call anytime. */
     public void cancelPending() {
         if (pendingDurationRunnable != null) {
             uiHandler.removeCallbacks(pendingDurationRunnable);

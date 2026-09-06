@@ -4,34 +4,18 @@ import androidx.annotation.NonNull;
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 
-/**
- * Room table row for a whole playlist ("playlists" table).
- *
- * <p>Mirrors {@link com.vanja.hotellobbydisplay.model.PlaylistModel} but only
- * with columns Room can store directly. The list of items is a separate table
- * ({@link PlaylistItemEntity}).</p>
- *
- * <p>Private fields with public getters and setters - Room uses the no-arg
- * constructor and the setters to build a row when reading from the database.</p>
- */
+/** "playlists" table. Items live in {@link PlaylistItemEntity}. */
 @Entity(tableName = "playlists")
 public class PlaylistEntity {
 
-    /** From JSON "playlistId". Primary key. */
     @PrimaryKey
     @NonNull
     private String playlistId = "";
-
-    /** From JSON "version". */
     private int version;
-
-    /** From JSON "updatedAt" (ISO-8601), may be null. */
     private String updatedAt;
-
-    /** True for the single playlist currently used for playback. */
+    /** True for the one playlist currently used for playback. */
     private boolean active;
-
-    /** Epoch millis when this playlist was saved locally (for offline / freshness checks). */
+    /** Epoch millis when saved locally. */
     private long fetchedAt;
 
     @NonNull

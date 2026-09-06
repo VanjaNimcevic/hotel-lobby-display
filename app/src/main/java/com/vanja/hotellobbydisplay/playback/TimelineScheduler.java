@@ -13,68 +13,47 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * Picks which playlist item should play right now.
- *
- * <p>Given the enabled items of a playlist (from
- * {@link com.vanja.hotellobbydisplay.data.PlaylistRepository}), every call to
- * {@link #getNextItem()}:</p>
- * <ol>
- *   <li>works out which items are currently allowed to play, based on their
- *       schedule (startAt/endAt, allowed weekdays, startTime/endTime);</li>
- *   <li>returns an eligible emergency or priority item first, if there is one;</li>
- *   <li>otherwise returns the next normal item, rotating through orderIndex
- *       and looping back to the start once the end is reached.</li>
- * </ol>
- *
- * <p>Pure in-memory logic, no I/O - safe to call from the main thread as often
- * as needed.</p>
+ * Picks which playlist item should play right now. Each {@link #getNextItem()}:
+ * filters items by schedule, returns an eligible emergency item if there is one,
+ * otherwise rotates through the rest (priority first, then orderIndex, looping).
+ * Pure in-memory - safe to call on the main thread.
  */
 public class TimelineScheduler {
 
     private static final String TAG = "TimelineScheduler";
 
     private final List<PlaylistItemEntity> items;
-
-    /** Position in the normal (non-emergency, non-priority) rotation. */
     private int normalIndex = 0;
 
     public TimelineScheduler(List<PlaylistItemEntity> items) {
         this.items = items;
     }
 
-    /**
-     * @return the next item to play right now, or {@code null} if nothing is
-     *         currently eligible (e.g. every item is outside its schedule)
-     */
+    /** @return the next item, or null if nothing is currently eligible. */
     public PlaylistItemEntity getNextItem() {
         List<PlaylistItemEntity> eligible = eligibleNow();
         if (eligible.isEmpty()) {
             return null;
         }
 
-        // APV-26: an eligible EMERGENCY item takes over completely - it is
-        // returned every cycle, so nothing else plays, until it stops being
-        // eligible (disabled, or its startAt/endAt window closed), at which
-        // point the normal rotation simply resumes where it left off (the
-        // rotation cursor is not touched here).
+        // An eligible emergency item takes over completely: returned every cycle
+        // until it stops being eligible, and the normal cursor is left untouched
+        // so normal playback resumes where it was.
         for (PlaylistItemEntity item : eligible) {
             if (item.isEmergency()) {
                 return item;
             }
         }
 
-        // Normal rotation: higher priority first, then orderIndex; loops forever.
-        // A non-emergency item with priority > 0 just sorts to the front of each
-        // loop - it still shares the rotation, it does not starve the rest.
+        // Priority > 0 just sorts to the front of the loop; it does not starve
+        // the rest.
         List<PlaylistItemEntity> rotation = new ArrayList<>(eligible);
         rotation.sort(Comparator
                 .comparingInt(PlaylistItemEntity::getPriority).reversed()
                 .thenComparingInt(PlaylistItemEntity::getOrderIndex));
 
         if (normalIndex >= rotation.size()) {
-            // The eligible set can shrink between calls (e.g. an item's time
-            // window just closed) - clamp instead of throwing.
-            normalIndex = 0;
+            normalIndex = 0; // eligible set shrank since last call
         }
         PlaylistItemEntity item = rotation.get(normalIndex);
         normalIndex = (normalIndex + 1) % rotation.size();
@@ -106,10 +85,10 @@ public class TimelineScheduler {
         return isWithinTimeOfDay(item.getScheduleStartTime(), item.getScheduleEndTime());
     }
 
-    /** {@code daysCsv} looks like {@code "1,2,3,4,5"}; 1 = Monday ... 7 = Sunday. */
+    /** {@code daysCsv} = "1,2,3,4,5"; 1 = Monday ... 7 = Sunday. Empty = no restriction. */
     private boolean isTodayAllowed(String daysCsv) {
         if (daysCsv == null || daysCsv.trim().isEmpty()) {
-            return true; // no restriction
+            return true;
         }
         int today = LocalDate.now().getDayOfWeek().getValue();
         for (String part : daysCsv.split(",")) {
@@ -118,7 +97,7 @@ public class TimelineScheduler {
                     return true;
                 }
             } catch (NumberFormatException e) {
-                Log.w(TAG, "Bad weekday value '" + part + "' in '" + daysCsv + "', skipping it");
+                Log.w(TAG, "Bad weekday value '" + part + "'");
             }
         }
         return false;
@@ -126,14 +105,13 @@ public class TimelineScheduler {
 
     private boolean isWithinTimeOfDay(String startTime, String endTime) {
         if (startTime == null || endTime == null) {
-            return true; // no restriction
+            return true;
         }
         LocalTime start = parseTimeOrNull(startTime);
         LocalTime end = parseTimeOrNull(endTime);
         if (start == null || end == null) {
-            return true; // bad data - do not block playback because of it
+            return true; // bad data must not block playback
         }
-
         LocalTime now = LocalTime.now();
         if (!start.isAfter(end)) {
             return !now.isBefore(start) && !now.isAfter(end);
@@ -149,7 +127,7 @@ public class TimelineScheduler {
         try {
             return Instant.parse(iso);
         } catch (DateTimeParseException e) {
-            Log.w(TAG, "Bad schedule date '" + iso + "', ignoring this bound", e);
+            Log.w(TAG, "Bad schedule date '" + iso + "'");
             return null;
         }
     }
@@ -158,7 +136,7 @@ public class TimelineScheduler {
         try {
             return LocalTime.parse(hhmm);
         } catch (DateTimeParseException e) {
-            Log.w(TAG, "Bad schedule time '" + hhmm + "', ignoring this bound", e);
+            Log.w(TAG, "Bad schedule time '" + hhmm + "'");
             return null;
         }
     }

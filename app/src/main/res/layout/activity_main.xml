@@ -1,12 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    Fullscreen signage player surface.
-
-    Hosts four content renderers stacked on top of each other. Only one is
-    ever VISIBLE at a time; PlaybackController toggles visibility as the
-    playlist advances. Background is solid black so letterboxed video and
-    images look right on a lobby TV.
--->
+<!-- Fullscreen player surface. Four renderers stacked; PlaybackController shows one at a time. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -18,8 +11,7 @@
     tools:context=".MainActivity"
     tools:deviceIds="tv">
 
-    <!-- VIDEO: Media3 player surface. use_controller=false hides all playback
-         controls (this is signage, not a media player). -->
+    <!-- VIDEO -->
     <androidx.media3.ui.PlayerView
         android:id="@+id/video_view"
         android:layout_width="match_parent"
@@ -29,7 +21,7 @@
         app:resize_mode="fit"
         app:use_controller="false" />
 
-    <!-- IMAGE: fitCenter keeps signage artwork uncropped on any panel ratio. -->
+    <!-- IMAGE -->
     <ImageView
         android:id="@+id/image_view"
         android:layout_width="match_parent"
@@ -39,8 +31,7 @@
         android:scaleType="fitCenter"
         android:visibility="gone" />
 
-    <!-- WEB: a WebView is created and added here programmatically (APV-18)
-         so it can be destroyed cleanly and never leaks the Activity. -->
+    <!-- WEB: WebRenderer adds/destroys a WebView here (kept out of XML to avoid leaks). -->
     <FrameLayout
         android:id="@+id/web_container"
         android:layout_width="match_parent"
@@ -48,8 +39,7 @@
         android:background="@android:color/black"
         android:visibility="gone" />
 
-    <!-- TEXT / BANNER: layout_gravity is switched at runtime to place the
-         banner at top, center or bottom (APV-17). -->
+    <!-- TEXT / BANNER: layout_gravity is set at runtime (top / center / bottom). -->
     <TextView
         android:id="@+id/text_view"
         android:layout_width="match_parent"
@@ -65,8 +55,7 @@
         tools:text="Welcome to the Grand Hotel"
         tools:visibility="visible" />
 
-    <!-- DEBUG overlay (APV-27): tiny status readout in the corner. Hidden unless
-         DebugOverlay.ENABLED is true; never shown in production-like playback. -->
+    <!-- DEBUG overlay: hidden unless DebugOverlay.ENABLED is true. -->
     <TextView
         android:id="@+id/debug_overlay"
         android:layout_width="wrap_content"

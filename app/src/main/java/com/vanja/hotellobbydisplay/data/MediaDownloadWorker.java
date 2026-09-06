@@ -15,15 +15,10 @@ import com.vanja.hotellobbydisplay.util.HttpFileDownloader;
 import java.util.List;
 
 /**
- * Downloads the active playlist's VIDEO and IMAGE files for offline playback
- * (APV-23).
- *
- * <p>Runs as a WorkManager {@link Worker}: {@code doWork()} is called on a
- * background thread WorkManager owns, so it can do blocking network + Room work
- * directly. It survives the app being backgrounded or killed, and WorkManager
- * retries it (with back-off) if any file failed.</p>
- *
- * <p>Enqueued by {@link PlaylistRepository} every time a playlist is stored.</p>
+ * WorkManager job that downloads the active playlist's VIDEO/IMAGE files for
+ * offline playback. {@code doWork()} runs on a background thread, survives the
+ * app being killed, and returns {@code retry()} if any file failed.
+ * Enqueued by {@link PlaylistRepository} after each playlist store.
  */
 public class MediaDownloadWorker extends Worker {
 
@@ -67,7 +62,6 @@ public class MediaDownloadWorker extends Worker {
             if (url == null) {
                 continue;
             }
-
             if (cache.isCached(url)) {
                 skipped++;
                 continue;
@@ -81,15 +75,12 @@ public class MediaDownloadWorker extends Worker {
             } else {
                 cache.markStatus(url, "FAILED");
                 failed++;
-                Log.w(TAG, "Failed to download " + url + " (continuing with the rest)");
+                Log.w(TAG, "Failed to download " + url + " (continuing)");
             }
         }
 
         Log.i(TAG, "Download pass done: " + downloaded + " downloaded, " + skipped
                 + " already cached, " + failed + " failed");
-
-        // Ask WorkManager to try the failed ones again later (it skips the ones
-        // that already succeeded). A clean pass just succeeds.
         return failed > 0 ? Result.retry() : Result.success();
     }
 }

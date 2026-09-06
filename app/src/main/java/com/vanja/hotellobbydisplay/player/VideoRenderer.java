@@ -12,18 +12,9 @@ import androidx.media3.ui.PlayerView;
 
 import java.io.File;
 
-/**
- * Plays a single VIDEO playlist item on a Media3 {@link PlayerView}.
- *
- * <p>Owns one {@link ExoPlayer}. Call {@link #play} to start an item and
- * {@link #release} from the Activity lifecycle to free it. The
- * {@link Listener} reports when the video ends or fails, so the caller (a
- * temporary driver now, {@code PlaybackController} in APV-20) can move to the
- * next item.</p>
- */
+/** Plays one VIDEO item on a Media3 {@link PlayerView}. Owns one {@link ExoPlayer}. */
 public class VideoRenderer {
 
-    /** Told when the current video finishes or cannot be played. */
     public interface Listener {
         void onFinished();
 
@@ -43,13 +34,7 @@ public class VideoRenderer {
         this.playerView = playerView;
     }
 
-    /**
-     * Starts playing the given source.
-     *
-     * @param source   an {@code http(s)://} URL or a local file path (a
-     *                 downloaded copy - deciding which to pass is APV-24's job)
-     * @param listener callbacks for finish / error
-     */
+    /** {@code source} is an http(s):// URL or a local file path. */
     public void play(String source, Listener listener) {
         this.listener = listener;
         release();
@@ -81,7 +66,7 @@ public class VideoRenderer {
         Log.i(TAG, "Playing video: " + source);
     }
 
-    /** Stops playback and frees the player. Safe to call more than once. */
+    /** Frees the player. Safe to call more than once. */
     public void release() {
         if (player != null) {
             player.release();
@@ -109,7 +94,6 @@ public class VideoRenderer {
         if (source.startsWith("http://") || source.startsWith("https://")) {
             return Uri.parse(source);
         }
-        // Anything else is treated as a local file path.
         return Uri.fromFile(new File(source));
     }
 }

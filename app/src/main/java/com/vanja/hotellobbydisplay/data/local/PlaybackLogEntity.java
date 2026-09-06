@@ -3,35 +3,20 @@ package com.vanja.hotellobbydisplay.data.local;
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 
-/**
- * Room table row for one playback event ("playback_logs" table).
- *
- * <p>Written by the playback layer (APV-21): one row when an item starts, then
- * updated when it finishes or fails.</p>
- */
+/** "playback_logs" table. One row per played item: inserted on start, updated on end. */
 @Entity(tableName = "playback_logs")
 public class PlaybackLogEntity {
 
-    /** Auto-incremented row id. Primary key. */
     @PrimaryKey(autoGenerate = true)
     private long id;
-
-    /** {@link PlaylistItemEntity#getId()} of the item that played. */
     private String itemId;
-
-    /** Epoch millis when the item started. */
     private long startedAt;
-
-    /** Epoch millis when the item finished, or 0 while it is still playing. */
+    /** 0 while still playing. */
     private long finishedAt;
-
     /** STARTED, COMPLETED or ERROR. */
     private String status;
-
-    /** Error text when status is ERROR, otherwise null. */
     private String errorMessage;
-
-    /** "LOCAL" or "REMOTE" for media items (APV-24); null for text/banner. */
+    /** LOCAL / REMOTE for media, null for text/banner. */
     private String source;
 
     public long getId() {

@@ -5,36 +5,19 @@ import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 
 /**
- * Room table row for one playlist item ("playlist_items" table).
- *
- * <p>Mirrors {@link com.vanja.hotellobbydisplay.model.PlaylistItemModel}. Room
- * columns can only be simple types, so the nested JSON objects are flattened:</p>
- * <ul>
- *   <li>{@code schedule.*} becomes the {@code schedule...} columns; the
- *       {@code daysOfWeek} list is stored as a comma-separated string
- *       (e.g. {@code "1,2,3,4,5"}).</li>
- *   <li>{@code metadata.*} becomes the {@code metadata...} columns.</li>
- *   <li>{@code layout} (bonus feature) is kept as its raw JSON text in
- *       {@code layoutJson} and parsed on demand.</li>
- * </ul>
- *
- * <p>The remote {@code url} is the key used to look up a downloaded local copy
- * in {@link MediaCacheEntity}, so there is no local-path column here.</p>
+ * "playlist_items" table. Nested JSON objects are flattened into columns:
+ * schedule.* -> schedule... (daysOfWeek as a CSV string), metadata.* ->
+ * metadata..., layout -> layoutJson (raw JSON, parsed on demand). The local
+ * copy of a media file is looked up by {@code url} in {@link MediaCacheEntity}.
  */
 @Entity(tableName = "playlist_items")
 public class PlaylistItemEntity {
 
-    /** From JSON "id". Primary key. */
     @PrimaryKey
     @NonNull
     private String id = "";
-
-    /** Which playlist this item belongs to ({@link PlaylistEntity#getPlaylistId()}). */
     private String playlistId;
 
-    // --- core content ---
-
-    /** VIDEO, IMAGE, TEXT, BANNER, WEB_PAGE, LAYOUT. */
     private String type;
     private String text;
     private String url;
@@ -44,24 +27,17 @@ public class PlaylistItemEntity {
     private int priority;
     private boolean isEmergency;
 
-    // --- schedule (null / empty when the item has no schedule) ---
-
     private String scheduleStartAt;
     private String scheduleEndAt;
-    /** Comma-separated weekday numbers, 1 = Monday ... 7 = Sunday. E.g. "1,2,3,4,5". */
+    /** CSV weekday numbers, 1 = Monday ... 7 = Sunday. */
     private String scheduleDaysOfWeek;
     private String scheduleStartTime;
     private String scheduleEndTime;
-
-    // --- metadata ---
 
     private String metadataBannerPosition;
     private boolean metadataJavascriptEnabled;
     private String metadataScaleType;
 
-    // --- layout (bonus) ---
-
-    /** Raw JSON of the "layout" object, or null. Parsed only if LAYOUT is supported. */
     private String layoutJson;
 
     @NonNull

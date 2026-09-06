@@ -30,38 +30,20 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 /**
- * The single place the rest of the app asks for playlist data.
- *
- * <p>Hides <em>where</em> the playlist comes from (bundled assets JSON for now,
- * a remote URL in APV-14), <em>how</em> it is parsed ({@link PlaylistJsonParser})
- * and <em>how</em> it is stored (Room). The UI layer talks only to this class -
- * never to the parser, {@link AssetFileReader} or the DAOs.</p>
- *
- * <p>All database work runs on one background thread; results come back on the
- * main thread through {@link Callback}.</p>
+ * The one place the app gets playlist data. Hides where it comes from (remote
+ * URL, bundled asset, or Room when offline), parsing, and Room storage. All
+ * work runs on one background thread; results come back via {@link Callback}.
  */
 public class PlaylistRepository {
 
     private static final String TAG = "PlaylistRepository";
 
-    /**
-     * Where the playlist is downloaded from. Replace with the real CDN URL.
-     * The placeholder below does not serve a playlist, so out of the box the
-     * app falls back to the bundled asset - which is exactly the behaviour
-     * APV-14 asks us to support.
-     */
+    /** Replace with the real endpoint. The placeholder just triggers the asset fallback. */
     private static final String PLAYLIST_URL = "https://example.com/hotel-lobby/playlist.json";
-
-    /** Bundled copy used when the remote URL cannot be reached or is invalid. */
     private static final String PLAYLIST_ASSET = "json/sample_playlist.json";
 
-    /** Delivered on the main thread when a load finishes. */
     public interface Callback {
-        /**
-         * @param enabledItems    the enabled items of the active playlist
-         * @param playlistSource  where the playlist came from this load:
-         *                        "REMOTE", "ASSETS" or "ROOM" (APV-27 debug overlay)
-         */
+        /** {@code playlistSource} is "REMOTE", "ASSETS" or "ROOM". */
         void onPlaylistReady(List<PlaylistItemEntity> enabledItems, String playlistSource);
 
         void onError(String message);
@@ -69,7 +51,6 @@ public class PlaylistRepository {
 
     private static PlaylistRepository instance;
 
-    /** One shared repository instance for the whole app. */
     public static synchronized PlaylistRepository getInstance(Context context) {
         if (instance == null) {
             instance = new PlaylistRepository(context.getApplicationContext());
@@ -84,7 +65,6 @@ public class PlaylistRepository {
     private final Executor backgroundExecutor = Executors.newSingleThreadExecutor();
     private final Handler mainThread = new Handler(Looper.getMainLooper());
 
-    /** Where the last load got the playlist from: REMOTE / ASSETS / ROOM. */
     private volatile String lastPlaylistSource = "-";
 
     private PlaylistRepository(Context context) {
@@ -92,10 +72,7 @@ public class PlaylistRepository {
         this.db = AppDatabase.getInstance(this.appContext);
     }
 
-    /**
-     * Loads the bundled playlist from assets, parses it, stores it in Room and
-     * calls back with the enabled items. Runs off the main thread.
-     */
+    /** Loads, parses and stores the playlist, then calls back with the enabled items. */
     public void loadInitialPlaylist(Callback callback) {
         backgroundExecutor.execute(() -> {
             try {
@@ -109,10 +86,7 @@ public class PlaylistRepository {
         });
     }
 
-    /**
-     * Reads the enabled items of the currently active playlist straight from
-     * Room (no assets, no parsing). Runs off the main thread.
-     */
+    /** Reads the active playlist's enabled items straight from Room. */
     public void getCurrentItems(Callback callback) {
         backgroundExecutor.execute(() -> {
             try {
@@ -125,22 +99,18 @@ public class PlaylistRepository {
         });
     }
 
-    // ------------------------------------------------------------------
-    // Everything below runs on the background thread.
-    // ------------------------------------------------------------------
+    // --- runs on the background thread ---
 
     private List<PlaylistItemEntity> loadAndStore() {
         boolean online = NetworkMonitor.isOnline(appContext);
         Log.i(TAG, "Network state: " + (online ? "ONLINE" : "OFFLINE"));
 
-        // APV-25: when offline, do not try the network - use the playlist
-        // already stored in Room (which may be a newer remote version fetched
-        // on a previous online run).
+        // Offline: skip the network, use the last playlist stored in Room.
         if (!online) {
             List<PlaylistItemEntity> fromRoom = readEnabledItemsOfActivePlaylist();
             if (!fromRoom.isEmpty()) {
-                Log.i(TAG, "Offline: using the playlist already in Room ("
-                        + fromRoom.size() + " enabled items)");
+                Log.i(TAG, "Offline: using the playlist already in Room (" + fromRoom.size()
+                        + " enabled items)");
                 lastPlaylistSource = "ROOM";
                 return fromRoom;
             }
@@ -150,7 +120,6 @@ public class PlaylistRepository {
         PlaylistModel model = null;
         String source = null;
 
-        // 1. Try the remote URL first (only worth it when online).
         if (online) {
             String remoteJson = HttpTextFetcher.fetch(PLAYLIST_URL);
             if (remoteJson != null) {
@@ -161,7 +130,6 @@ public class PlaylistRepository {
             }
         }
 
-        // 2. Fall back to the bundled asset if remote failed or was invalid.
         if (model == null) {
             String assetJson = AssetFileReader.readAssetFile(appContext, PLAYLIST_ASSET);
             if (assetJson != null) {
@@ -173,7 +141,6 @@ public class PlaylistRepository {
         }
 
         if (model == null) {
-            // Last resort: whatever is already in Room, if anything.
             List<PlaylistItemEntity> fromRoom = readEnabledItemsOfActivePlaylist();
             if (!fromRoom.isEmpty()) {
                 Log.w(TAG, "Could not load a fresh playlist - using the one already in Room");
@@ -189,11 +156,10 @@ public class PlaylistRepository {
 
         PlaylistEntity playlistEntity = toEntity(model);
         List<PlaylistItemEntity> itemEntities = toEntities(model);
-
         PlaylistDao playlistDao = db.playlistDao();
         PlaylistItemDao itemDao = db.playlistItemDao();
 
-        // One transaction: either the whole playlist is replaced, or nothing.
+        // One transaction: the whole playlist is replaced, or nothing.
         db.runInTransaction(() -> {
             playlistDao.upsert(playlistEntity);
             itemDao.deleteForPlaylist(playlistEntity.getPlaylistId());
@@ -210,11 +176,7 @@ public class PlaylistRepository {
         return stored;
     }
 
-    /**
-     * APV-23: kick off a background download of this playlist's VIDEO/IMAGE
-     * files. {@code REPLACE} so a freshly loaded playlist supersedes any
-     * download still queued for the previous one.
-     */
+    /** REPLACE so a fresh playlist supersedes a download still queued for the previous one. */
     private void enqueueMediaDownload() {
         Constraints constraints = new Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -235,9 +197,7 @@ public class PlaylistRepository {
         return db.playlistItemDao().getEnabledItems(active.getPlaylistId());
     }
 
-    // ------------------------------------------------------------------
-    // Mapping: model (from JSON) -> entity (Room row).
-    // ------------------------------------------------------------------
+    // --- model (JSON) -> entity (Room row) ---
 
     private PlaylistEntity toEntity(PlaylistModel model) {
         PlaylistEntity e = new PlaylistEntity();
@@ -277,18 +237,14 @@ public class PlaylistRepository {
             e.setScheduleStartTime(item.getSchedule().getStartTime());
             e.setScheduleEndTime(item.getSchedule().getEndTime());
         }
-
         if (item.getMetadata() != null) {
             e.setMetadataBannerPosition(item.getMetadata().getBannerPosition());
             e.setMetadataJavascriptEnabled(item.getMetadata().isJavascriptEnabled());
             e.setMetadataScaleType(item.getMetadata().getScaleType());
         }
-
         if (item.getLayout() != null) {
-            // Bonus feature: keep the layout object as raw JSON, parsed on demand.
             e.setLayoutJson(gson.toJson(item.getLayout()));
         }
-
         return e;
     }
 

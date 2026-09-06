@@ -10,13 +10,9 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 
 /**
- * Downloads a binary file over HTTP(S) with {@link HttpURLConnection}
- * (built into Android, no extra library - same choice as {@link HttpTextFetcher}).
- *
- * <p>The file is written to a {@code .tmp} sibling first and only renamed to
- * the real name on success, so a half-finished download never looks like a
- * complete cached file. Never throws: returns {@code -1} on any failure.
- * Must be called off the main thread.</p>
+ * Downloads a binary file. Writes to a {@code .tmp} sibling and renames on
+ * success, so a half-finished download never looks complete. Returns -1 on
+ * failure. Call off the main thread.
  */
 public final class HttpFileDownloader {
 
@@ -26,14 +22,9 @@ public final class HttpFileDownloader {
     private static final int BUFFER_SIZE = 8192;
 
     private HttpFileDownloader() {
-        // Utility class - never instantiated.
     }
 
-    /**
-     * Downloads {@code urlString} into {@code destFile}.
-     *
-     * @return the number of bytes written, or {@code -1} if the download failed
-     */
+    /** @return bytes written, or -1 if the download failed. */
     public static long download(String urlString, File destFile) {
         File tempFile = new File(destFile.getAbsolutePath() + ".tmp");
         HttpURLConnection connection = null;

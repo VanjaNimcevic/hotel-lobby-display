@@ -18,6 +18,11 @@ import com.vanja.hotellobbydisplay.playback.PlaybackController;
 
 import java.util.List;
 
+/**
+ * Fullscreen player screen. Gets the playlist from {@link PlaylistRepository},
+ * hands it to {@link PlaybackController}, and drives start/stop from the
+ * lifecycle. No data or rendering logic lives here.
+ */
 public class MainActivity extends FragmentActivity {
 
     private static final String TAG = "MainActivity";
@@ -43,12 +48,6 @@ public class MainActivity extends FragmentActivity {
         loadPlaylist();
     }
 
-    /**
-     * APV-13 + APV-19 + APV-20: ask the repository for the playlist, then hand
-     * it to the PlaybackController, which uses TimelineScheduler to pick items
-     * and the right renderer to show them. The Activity never touches assets,
-     * the parser, the DAOs or a renderer directly.
-     */
     private void loadPlaylist() {
         playlistRepository.loadInitialPlaylist(new PlaylistRepository.Callback() {
             @Override
