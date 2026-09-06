@@ -1,12 +1,12 @@
 {
-  "playlistId": "hotel-lobby-default",
+  "playlistId": "belvedere-lobby",
   "version": 1,
   "updatedAt": "2026-09-01T12:00:00Z",
   "items": [
     {
       "id": "emergency-fire",
       "type": "TEXT",
-      "text": "EMERGENCY: Please leave the building calmly using the nearest exit.",
+      "text": "EMERGENCY\nPlease leave the building calmly by the nearest marked exit.\nBelvedere staff will assist you.",
       "url": null,
       "durationSec": 10,
       "orderIndex": 0,
@@ -14,8 +14,8 @@
       "priority": 100,
       "isEmergency": true,
       "schedule": {
-        "startAt": "2026-01-01T00:00:00Z",
-        "endAt": "2026-12-31T23:59:59Z",
+        "startAt": "2020-01-01T00:00:00Z",
+        "endAt": "2035-12-31T23:59:59Z",
         "daysOfWeek": [1, 2, 3, 4, 5, 6, 7],
         "startTime": "00:00",
         "endTime": "23:59"
@@ -26,7 +26,7 @@
     {
       "id": "priority-notice",
       "type": "TEXT",
-      "text": "Priority notice: the airport shuttle leaves from the main entrance in 10 minutes.",
+      "text": "Priority notice\nThe airport limousine departs from the Belvedere main entrance in 10 minutes.",
       "url": null,
       "durationSec": 6,
       "orderIndex": 99,
@@ -41,15 +41,15 @@
       "id": "video-welcome",
       "type": "VIDEO",
       "text": null,
-      "url": "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4",
+      "url": "https://raw.githubusercontent.com/VanjaNimcevic/hotel-lobby-display/master/demo-media/video.mp4",
       "durationSec": 0,
       "orderIndex": 1,
       "enabled": true,
       "priority": 0,
       "isEmergency": false,
       "schedule": {
-        "startAt": "2026-01-01T00:00:00Z",
-        "endAt": "2026-12-31T23:59:59Z",
+        "startAt": "2020-01-01T00:00:00Z",
+        "endAt": "2035-12-31T23:59:59Z",
         "daysOfWeek": [1, 2, 3, 4, 5, 6, 7],
         "startTime": "00:00",
         "endTime": "23:59"
@@ -58,28 +58,12 @@
       "layout": null
     },
     {
-      "id": "image-pool",
-      "type": "IMAGE",
-      "text": null,
-      "url": "https://picsum.photos/1920/1080",
-      "durationSec": 10,
-      "orderIndex": 2,
-      "enabled": true,
-      "priority": 0,
-      "isEmergency": false,
-      "schedule": null,
-      "metadata": {
-        "scaleType": "fitCenter"
-      },
-      "layout": null
-    },
-    {
       "id": "text-welcome",
       "type": "TEXT",
-      "text": "Welcome to the Grand Hotel\nWe hope you enjoy your stay",
+      "text": "Welcome to The Belvedere\nWe are delighted to host your stay",
       "url": null,
       "durationSec": 8,
-      "orderIndex": 3,
+      "orderIndex": 2,
       "enabled": true,
       "priority": 0,
       "isEmergency": false,
@@ -94,9 +78,25 @@
       "layout": null
     },
     {
+      "id": "image-pool",
+      "type": "IMAGE",
+      "text": null,
+      "url": "https://raw.githubusercontent.com/VanjaNimcevic/hotel-lobby-display/master/demo-media/soba.jpg",
+      "durationSec": 10,
+      "orderIndex": 3,
+      "enabled": true,
+      "priority": 0,
+      "isEmergency": false,
+      "schedule": null,
+      "metadata": {
+        "scaleType": "centerCrop"
+      },
+      "layout": null
+    },
+    {
       "id": "banner-breakfast",
       "type": "BANNER",
-      "text": "Breakfast is served 07:00 - 10:00 in the main restaurant",
+      "text": "Breakfast is served 07:00 - 10:30 in the Orangery restaurant",
       "url": null,
       "durationSec": 8,
       "orderIndex": 4,
@@ -113,7 +113,7 @@
       "id": "web-info",
       "type": "WEB_PAGE",
       "text": null,
-      "url": "https://www.wikipedia.org",
+      "url": "https://en.wikipedia.org/wiki/Hotel",
       "durationSec": 20,
       "orderIndex": 5,
       "enabled": true,
@@ -148,7 +148,7 @@
           {
             "type": "TEXT",
             "url": null,
-            "text": "Spa & Wellness\nOpen daily 09:00 - 21:00"
+            "text": "The Belvedere Spa\nOpen daily 06:00 - 22:00"
           }
         ]
       }
