@@ -13,3 +13,6 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Personal defense notes - kept local, not published
+docs/odbrana/

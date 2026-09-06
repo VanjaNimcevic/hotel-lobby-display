@@ -537,6 +537,26 @@ Overlay je **isključen** po defaultu.
 
 ---
 
+## 5n. Test APV-29 — README
+
+Nema šta da se pokreće na emulatoru; provera je da dokument stoji i da je tačan.
+
+1. Otvori [`README.md`](../README.md) u korenu projekta (ili na GitHub naslovnoj
+   strani repo-a — automatski se prikazuje).
+2. Prođi kroz sekcije: **What it does**, **Requirements**, **Build and run**,
+   **Configuration**, **Architecture**, **Documentation**, **Project status**.
+3. Provera komande iz sekcije „Build and run":
+   ```bash
+   gradlew.bat :app:assembleDebug
+   ```
+   → `BUILD SUCCESSFUL`.
+4. Klikni linkove ka `docs/playlist-format.md`, `docs/testiranje.md`,
+   `docs/known-issues.md`, `docs/odbrana/` — svi treba da se otvore.
+5. Uporedi verzije u README-u sa `gradle/libs.versions.toml` — treba da se
+   poklapaju (AGP, Gradle, compileSdk/targetSdk/minSdk, biblioteke).
+
+---
+
 ## 6. Provera da su podaci stvarno u bazi (Room)
 
 1. Dok aplikacija radi na emulatoru: **View → Tool Windows → App Inspection**.
