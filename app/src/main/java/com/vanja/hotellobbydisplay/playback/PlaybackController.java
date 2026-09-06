@@ -15,6 +15,7 @@ import com.vanja.hotellobbydisplay.data.MediaCacheManager;
 import com.vanja.hotellobbydisplay.data.PlaybackLogger;
 import com.vanja.hotellobbydisplay.data.local.PlaylistItemEntity;
 import com.vanja.hotellobbydisplay.player.ImageRenderer;
+import com.vanja.hotellobbydisplay.player.LayoutRenderer;
 import com.vanja.hotellobbydisplay.player.TextRenderer;
 import com.vanja.hotellobbydisplay.player.VideoRenderer;
 import com.vanja.hotellobbydisplay.player.WebRenderer;
@@ -38,6 +39,7 @@ public class PlaybackController {
     private static final String TYPE_TEXT = "TEXT";
     private static final String TYPE_BANNER = "BANNER";
     private static final String TYPE_WEB_PAGE = "WEB_PAGE";
+    private static final String TYPE_LAYOUT = "LAYOUT";
 
     private static final long RETRY_DELAY_MS = 3_000L;
     private static final long NOTHING_ELIGIBLE_RETRY_MS = 5_000L;
@@ -50,11 +52,13 @@ public class PlaybackController {
     private final ImageRenderer imageRenderer;
     private final TextRenderer textRenderer;
     private final WebRenderer webRenderer;
+    private final LayoutRenderer layoutRenderer;
 
     private final View videoView;
     private final View imageView;
     private final View textView;
     private final View webContainer;
+    private final View layoutContainer;
 
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private final PlaybackLogger playbackLogger;
@@ -69,17 +73,20 @@ public class PlaybackController {
     private Boolean wasOnline;
 
     public PlaybackController(Context context, PlayerView videoView, ImageView imageView,
-            TextView textView, ViewGroup webContainer, TextView debugOverlayView) {
+            TextView textView, ViewGroup webContainer, ViewGroup layoutContainer,
+            TextView debugOverlayView) {
         this.appContext = context.getApplicationContext();
         this.videoView = videoView;
         this.imageView = imageView;
         this.textView = textView;
         this.webContainer = webContainer;
+        this.layoutContainer = layoutContainer;
 
         this.videoRenderer = new VideoRenderer(context, videoView);
         this.imageRenderer = new ImageRenderer(context, imageView);
         this.textRenderer = new TextRenderer(textView);
         this.webRenderer = new WebRenderer(context, webContainer);
+        this.layoutRenderer = new LayoutRenderer(context, layoutContainer);
 
         this.playbackLogger = new PlaybackLogger(context);
         this.mediaCacheManager = new MediaCacheManager(context);
@@ -117,6 +124,7 @@ public class PlaybackController {
         imageRenderer.cancelPending();
         textRenderer.cancelPending();
         webRenderer.release();
+        layoutRenderer.release();
     }
 
     private void playNext(long delayMs) {
@@ -229,8 +237,27 @@ public class PlaybackController {
                         });
                 break;
 
+            case TYPE_LAYOUT:
+                playbackLogger.logStart(item.getId(), null);
+                fadeIn(layoutContainer);
+                layoutRenderer.play(item.getLayoutJson(), item.getDurationSec(),
+                        new LayoutRenderer.Listener() {
+                            @Override
+                            public void onFinished() {
+                                logFinished(item);
+                                playNext(0L);
+                            }
+
+                            @Override
+                            public void onError(String message) {
+                                logError(item, message);
+                                playNext(RETRY_DELAY_MS);
+                            }
+                        });
+                break;
+
             default:
-                Log.i(TAG, "Skipping unsupported type: " + type); // LAYOUT etc.
+                Log.i(TAG, "Skipping unsupported type: " + type);
                 playNext(0L);
         }
     }
@@ -280,6 +307,7 @@ public class PlaybackController {
         imageRenderer.cancelPending();
         textRenderer.cancelPending();
         webRenderer.release();
+        layoutRenderer.release();
     }
 
     private void hideAllViews() {
@@ -287,6 +315,7 @@ public class PlaybackController {
         imageView.setVisibility(View.GONE);
         textView.setVisibility(View.GONE);
         webContainer.setVisibility(View.GONE);
+        layoutContainer.setVisibility(View.GONE);
     }
 
     private void fadeIn(View view) {
@@ -296,7 +325,7 @@ public class PlaybackController {
         view.animate().alpha(1f).setDuration(TRANSITION_MS).start();
     }
 
-    /** VIDEO/IMAGE/WEB_PAGE need a url; TEXT/BANNER need text; other types pass through. */
+    /** VIDEO/IMAGE/WEB_PAGE need a url; TEXT/BANNER need text; LAYOUT needs a layout. */
     private boolean hasRequiredContent(PlaylistItemEntity item) {
         String type = item.getType();
         if (TYPE_VIDEO.equals(type) || TYPE_IMAGE.equals(type) || TYPE_WEB_PAGE.equals(type)) {
@@ -304,6 +333,9 @@ public class PlaybackController {
         }
         if (TYPE_TEXT.equals(type) || TYPE_BANNER.equals(type)) {
             return item.getText() != null;
+        }
+        if (TYPE_LAYOUT.equals(type)) {
+            return item.getLayoutJson() != null;
         }
         return true;
     }

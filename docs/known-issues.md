@@ -1,6 +1,6 @@
 # Known issues and limitations
 
-Current as of APV-28. Nothing here crashes the app; they are trade-offs or
+Current as of APV-30. Nothing here crashes the app; they are trade-offs or
 unfinished optional work.
 
 ## Configuration
@@ -24,9 +24,13 @@ unfinished optional work.
 
 ## Playback
 
-- **`LAYOUT` items are skipped.** Split-screen rendering is the optional bonus
-  (APV-30) and is not implemented. `PlaybackController` logs
-  `Skipping unsupported type: LAYOUT` and moves on.
+- **`LAYOUT` rendering is basic (APV-30).** `LayoutRenderer` splits the screen
+  into equal regions (horizontal, or stacked when the template name contains
+  TOP/BOTTOM/STACK) and shows one VIDEO/IMAGE/TEXT per region. The `template`
+  string is otherwise ignored - no 70/30 splits, no per-region positioning or
+  styling. Region media is loaded straight from its URL: `MediaDownloadWorker`
+  only caches top-level item URLs, so a LAYOUT with a remote video is skipped
+  while offline (like any other network-only item).
 - **Local-file check runs on the main thread.** `MediaCacheManager.isCached`
   does `File.exists()` / `File.length()` from `PlaybackController.playCurrent`.
   These are fast stat calls (once per item, seconds apart) but StrictMode would

@@ -40,9 +40,10 @@ public class MainActivity extends FragmentActivity {
         ImageView imageView = findViewById(R.id.image_view);
         TextView textView = findViewById(R.id.text_view);
         ViewGroup webContainer = findViewById(R.id.web_container);
+        ViewGroup layoutContainer = findViewById(R.id.layout_container);
         TextView debugOverlay = findViewById(R.id.debug_overlay);
         playbackController = new PlaybackController(
-                this, videoView, imageView, textView, webContainer, debugOverlay);
+                this, videoView, imageView, textView, webContainer, layoutContainer, debugOverlay);
 
         playlistRepository = PlaylistRepository.getInstance(this);
         loadPlaylist();

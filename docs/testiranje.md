@@ -557,6 +557,44 @@ Nema šta da se pokreće na emulatoru; provera je da dokument stoji i da je tač
 
 ---
 
+## 5o. Test APV-30 — split-screen LAYOUT
+
+Playlista ima stavku `layout-split` (`type: LAYOUT`, `durationSec: 15`) sa dve
+regije: levo VIDEO (demo snimak), desno TEKST („The Belvedere Spa …").
+
+**Normalno (uz internet):**
+1. Pokreni na TV emulatoru. Sačekaj da rotacija dođe do `layout-split` (posle
+   `web-info`).
+2. Ekran je **podeljen na pola po vertikali**: levo se vrti video (bez zvuka, u
+   petlji), desno stoji centriran beli tekst na crnoj podlozi.
+3. Posle **15 s** prelazi na sledeću stavku (opet `video-welcome`).
+4. Logcat `tag:LayoutRenderer | tag:PlaybackController`:
+   ```
+   I  PlaybackController  START item=layout-split type=LAYOUT
+   I  LayoutRenderer      Showing layout 'VIDEO_LEFT_TEXT_RIGHT' with 2 region(s) for 15s
+   I  PlaybackController  FINISH item=layout-split
+   ```
+
+**Test bez interneta:**
+1. Isključi mrežu (`adb shell svc wifi disable`), pokreni.
+2. `layout-split` se **preskače** (regija ima remote video, a LAYOUT se ne kešira):
+   ```
+   I  PlaybackController  OFFLINE - skipping item=layout-split type=LAYOUT
+   ```
+   Aplikacija ne puca, nastavlja sa TEXT/BANNER stavkama.
+
+**Test stacked (opciono):**
+U `sample_playlist.json` promeni `layout.template` u nešto što sadrži `STACK`
+(npr. `"VIDEO_TOP_TEXT_BOTTOM"`), obriši podatke aplikacije, pokreni → regije su
+sada **jedna iznad druge** umesto levo/desno.
+
+**Test greške:**
+U `layout.regions` obriši oba elementa (prazan niz), osveži podatke, pokreni →
+`LayoutRenderer` javi `layout has no regions`, `PlaybackController` to loguje kao
+ERROR i posle 3 s ide dalje. Vrati fajl: `git checkout -- app/src/main/assets/json/sample_playlist.json`.
+
+---
+
 ## 6. Provera da su podaci stvarno u bazi (Room)
 
 1. Dok aplikacija radi na emulatoru: **View → Tool Windows → App Inspection**.

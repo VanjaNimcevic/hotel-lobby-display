@@ -14,10 +14,11 @@ framework, no reactive libraries.
 
 - **Full-screen playlist loop.** One item on screen at a time, cross-faded, then
   the next. When the list ends it starts again.
-- **Five content types:** `VIDEO` (Media3/ExoPlayer), `IMAGE` (Glide, with a
+- **Six content types:** `VIDEO` (Media3/ExoPlayer), `IMAGE` (Glide, with a
   slow Ken Burns zoom), `TEXT` (full-screen message), `BANNER` (text pinned
-  top/center/bottom), `WEB_PAGE` (WebView). `LAYOUT` (split screen) is parsed but
-  not yet rendered — see [Known issues](docs/known-issues.md).
+  top/center/bottom), `WEB_PAGE` (WebView), `LAYOUT` (basic split screen — equal
+  regions, one video/image/text each; see [Known issues](docs/known-issues.md)
+  for what the template does and does not control).
 - **Scheduling.** Each item can be limited to a date range, certain weekdays and
   a time-of-day window (including windows that cross midnight).
 - **Priority and emergency override.** A higher `priority` sorts an item to the
@@ -146,7 +147,7 @@ PlaybackController.start()
 | `data.local` | Room: `AppDatabase` plus entities and DAOs for `playlists`, `playlist_items`, `media_cache`, `playback_logs`. |
 | `model` | Plain Gson POJOs matching the playlist JSON (`PlaylistModel`, `PlaylistItemModel`, `ScheduleModel`, `MetadataModel`, `LayoutModel`, `RegionModel`). |
 | `playback` | `PlaybackController` (owns the renderers, runs the loop), `TimelineScheduler` (picks the next item), `DebugOverlay` (optional on-screen status text). |
-| `player` | One renderer per content type: `VideoRenderer` (Media3), `ImageRenderer` (Glide), `TextRenderer`, `WebRenderer` (WebView). Each exposes `play(...)` with a small listener for finish/error. |
+| `player` | One renderer per content type: `VideoRenderer` (Media3), `ImageRenderer` (Glide), `TextRenderer`, `WebRenderer` (WebView), `LayoutRenderer` (split screen, builds its regions in code). Each exposes `play(...)` with a small listener for finish/error. |
 | `util` | `AssetFileReader`, `HttpTextFetcher`, `HttpFileDownloader` (all `HttpURLConnection`), `NetworkMonitor`. |
 
 ### Threading
@@ -210,6 +211,6 @@ adb shell "run-as com.vanja.hotellobbydisplay sqlite3 databases/hotel_lobby.db \
 
 ## Project status
 
-The app was built task by task (Jira APV-4 … APV-30). Everything through APV-29
-is done; APV-30 (split-screen `LAYOUT` rendering) is the remaining optional
-bonus.
+The app was built task by task (Jira APV-4 … APV-30), all tasks complete. APV-30
+(split-screen `LAYOUT` rendering) is intentionally a basic version — see
+[Known issues](docs/known-issues.md).

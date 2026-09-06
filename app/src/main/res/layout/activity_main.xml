@@ -55,6 +55,14 @@
         tools:text="Welcome to the Grand Hotel"
         tools:visibility="visible" />
 
+    <!-- LAYOUT: LayoutRenderer builds the split screen here at runtime. -->
+    <FrameLayout
+        android:id="@+id/layout_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/black"
+        android:visibility="gone" />
+
     <!-- DEBUG overlay: hidden unless DebugOverlay.ENABLED is true. -->
     <TextView
         android:id="@+id/debug_overlay"

@@ -142,7 +142,7 @@
         "regions": [
           {
             "type": "VIDEO",
-            "url": "https://media.w3.org/2010/05/bunny/trailer.mp4",
+            "url": "https://raw.githubusercontent.com/VanjaNimcevic/hotel-lobby-display/master/demo-media/video.mp4",
             "text": null
           },
           {
