@@ -70,16 +70,20 @@ public class PlaybackController {
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private final PlaybackLogger playbackLogger;
     private final MediaCacheManager mediaCacheManager;
+    private final DebugOverlay debugOverlay;
     private final Context appContext;
 
     private TimelineScheduler scheduler;
     private boolean running;
 
+    /** Where the current playlist came from (REMOTE / ASSETS / ROOM), for the debug overlay. */
+    private String playlistSource = "-";
+
     /** Last known network state, so a change can be logged once instead of every cycle. */
     private Boolean wasOnline;
 
     public PlaybackController(Context context, PlayerView videoView, ImageView imageView,
-            TextView textView, ViewGroup webContainer) {
+            TextView textView, ViewGroup webContainer, TextView debugOverlayView) {
         this.appContext = context.getApplicationContext();
         this.videoView = videoView;
         this.imageView = imageView;
@@ -93,6 +97,7 @@ public class PlaybackController {
 
         this.playbackLogger = new PlaybackLogger(context);
         this.mediaCacheManager = new MediaCacheManager(context);
+        this.debugOverlay = new DebugOverlay(debugOverlayView);
     }
 
     /**
@@ -100,7 +105,8 @@ public class PlaybackController {
      * {@link TimelineScheduler} from it. Call before (or after) {@link #start()}
      * - {@code start()} waits until items are available.
      */
-    public void setItems(List<PlaylistItemEntity> items) {
+    public void setItems(List<PlaylistItemEntity> items, String playlistSource) {
+        this.playlistSource = playlistSource;
         List<PlaylistItemEntity> usable = new ArrayList<>();
         for (PlaylistItemEntity item : items) {
             if (hasRequiredContent(item)) {
@@ -174,6 +180,7 @@ public class PlaybackController {
 
         Log.i(TAG, "START item=" + item.getId() + " type=" + type
                 + (sourceLabel != null ? " source=" + sourceLabel : ""));
+        debugOverlay.update(item.getId(), type, sourceLabel, online, playlistSource);
 
         switch (type) {
             case TYPE_VIDEO:

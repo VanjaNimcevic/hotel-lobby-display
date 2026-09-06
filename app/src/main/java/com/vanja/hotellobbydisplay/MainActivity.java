@@ -35,7 +35,9 @@ public class MainActivity extends FragmentActivity {
         ImageView imageView = findViewById(R.id.image_view);
         TextView textView = findViewById(R.id.text_view);
         ViewGroup webContainer = findViewById(R.id.web_container);
-        playbackController = new PlaybackController(this, videoView, imageView, textView, webContainer);
+        TextView debugOverlay = findViewById(R.id.debug_overlay);
+        playbackController = new PlaybackController(
+                this, videoView, imageView, textView, webContainer, debugOverlay);
 
         playlistRepository = PlaylistRepository.getInstance(this);
         loadPlaylist();
@@ -50,9 +52,10 @@ public class MainActivity extends FragmentActivity {
     private void loadPlaylist() {
         playlistRepository.loadInitialPlaylist(new PlaylistRepository.Callback() {
             @Override
-            public void onPlaylistReady(List<PlaylistItemEntity> enabledItems) {
-                Log.i(TAG, "Playlist ready: " + enabledItems.size() + " enabled items");
-                playbackController.setItems(enabledItems);
+            public void onPlaylistReady(List<PlaylistItemEntity> enabledItems, String playlistSource) {
+                Log.i(TAG, "Playlist ready: " + enabledItems.size() + " enabled items (from "
+                        + playlistSource + ")");
+                playbackController.setItems(enabledItems, playlistSource);
                 playbackController.start();
             }
 

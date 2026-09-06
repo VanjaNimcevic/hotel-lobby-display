@@ -65,4 +65,20 @@
         tools:text="Welcome to the Grand Hotel"
         tools:visibility="visible" />
 
+    <!-- DEBUG overlay (APV-27): tiny status readout in the corner. Hidden unless
+         DebugOverlay.ENABLED is true; never shown in production-like playback. -->
+    <TextView
+        android:id="@+id/debug_overlay"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:layout_margin="16dp"
+        android:background="#B0000000"
+        android:fontFamily="monospace"
+        android:padding="8dp"
+        android:textColor="#FF00FF66"
+        android:textSize="14sp"
+        android:visibility="gone"
+        tools:ignore="HardcodedText" />
+
 </FrameLayout>

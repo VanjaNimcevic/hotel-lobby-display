@@ -57,7 +57,12 @@ public class PlaylistRepository {
 
     /** Delivered on the main thread when a load finishes. */
     public interface Callback {
-        void onPlaylistReady(List<PlaylistItemEntity> enabledItems);
+        /**
+         * @param enabledItems    the enabled items of the active playlist
+         * @param playlistSource  where the playlist came from this load:
+         *                        "REMOTE", "ASSETS" or "ROOM" (APV-27 debug overlay)
+         */
+        void onPlaylistReady(List<PlaylistItemEntity> enabledItems, String playlistSource);
 
         void onError(String message);
     }
@@ -79,6 +84,9 @@ public class PlaylistRepository {
     private final Executor backgroundExecutor = Executors.newSingleThreadExecutor();
     private final Handler mainThread = new Handler(Looper.getMainLooper());
 
+    /** Where the last load got the playlist from: REMOTE / ASSETS / ROOM. */
+    private volatile String lastPlaylistSource = "-";
+
     private PlaylistRepository(Context context) {
         this.appContext = context.getApplicationContext();
         this.db = AppDatabase.getInstance(this.appContext);
@@ -92,7 +100,8 @@ public class PlaylistRepository {
         backgroundExecutor.execute(() -> {
             try {
                 List<PlaylistItemEntity> items = loadAndStore();
-                mainThread.post(() -> callback.onPlaylistReady(items));
+                String source = lastPlaylistSource;
+                mainThread.post(() -> callback.onPlaylistReady(items, source));
             } catch (Exception e) {
                 Log.e(TAG, "Failed to load playlist", e);
                 mainThread.post(() -> callback.onError(String.valueOf(e.getMessage())));
@@ -107,7 +116,8 @@ public class PlaylistRepository {
     public void getCurrentItems(Callback callback) {
         backgroundExecutor.execute(() -> {
             try {
-                mainThread.post(() -> callback.onPlaylistReady(readEnabledItemsOfActivePlaylist()));
+                List<PlaylistItemEntity> items = readEnabledItemsOfActivePlaylist();
+                mainThread.post(() -> callback.onPlaylistReady(items, "ROOM"));
             } catch (Exception e) {
                 Log.e(TAG, "Failed to read current items", e);
                 mainThread.post(() -> callback.onError(String.valueOf(e.getMessage())));
@@ -131,6 +141,7 @@ public class PlaylistRepository {
             if (!fromRoom.isEmpty()) {
                 Log.i(TAG, "Offline: using the playlist already in Room ("
                         + fromRoom.size() + " enabled items)");
+                lastPlaylistSource = "ROOM";
                 return fromRoom;
             }
             Log.w(TAG, "Offline and nothing stored yet - using the bundled asset");
@@ -166,11 +177,13 @@ public class PlaylistRepository {
             List<PlaylistItemEntity> fromRoom = readEnabledItemsOfActivePlaylist();
             if (!fromRoom.isEmpty()) {
                 Log.w(TAG, "Could not load a fresh playlist - using the one already in Room");
+                lastPlaylistSource = "ROOM";
                 return fromRoom;
             }
             throw new IllegalStateException("playlist could not be loaded from remote, assets or Room");
         }
 
+        lastPlaylistSource = source;
         Log.i(TAG, "Playlist loaded from " + source + " (playlistId=" + model.getPlaylistId()
                 + ", version=" + model.getVersion() + ")");
 

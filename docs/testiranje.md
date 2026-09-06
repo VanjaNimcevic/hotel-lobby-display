@@ -511,6 +511,32 @@ Uzorak ima dve normalno **isključene** demo stavke: `emergency-fire`
 
 ---
 
+## 5m. Test APV-27 — debug overlay
+
+Overlay je **isključen** po defaultu.
+
+1. Otvori `app/src/main/java/com/vanja/hotellobbydisplay/playback/DebugOverlay.java`,
+   promeni:
+   ```java
+   public static final boolean ENABLED = false;   // -> true
+   ```
+2. Rebuild (`Build → Make Project`) + Run.
+3. U **gornjem levom uglu** ekrana stoji mali zeleni tekst koji se menja sa
+   svakom stavkom:
+   ```
+   DEBUG
+   item: video-welcome
+   type: VIDEO
+   source: REMOTE
+   playlist: ASSETS
+   net: ONLINE
+   ```
+   - posle preuzimanja medija (§5i) → `source: LOCAL`
+   - isključi mrežu → `net: OFFLINE`
+4. **Vrati `ENABLED = false`** i rebuild → overlay potpuno nestaje.
+
+---
+
 ## 6. Provera da su podaci stvarno u bazi (Room)
 
 1. Dok aplikacija radi na emulatoru: **View → Tool Windows → App Inspection**.
